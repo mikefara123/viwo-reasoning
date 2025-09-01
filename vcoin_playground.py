@@ -3262,16 +3262,13 @@ def content_calculator_interface():
             adjusted_5a_score = (creator_5a / 100) * 400 + 100
             
             # Calculate engagement multiplier based on engagement metrics
-            # Higher engagement = higher total reward
-            engagement_rate = (shares + likes + comments) / max(1, view_count)
+            # Higher engagement = higher total reward (likes and dislikes treated equally)
+            total_reactions = likes + dislikes
+            engagement_rate = (shares + total_reactions + comments) / max(1, view_count)
             engagement_multiplier = 1.0 + (engagement_rate * 2.0)  # Up to 3x multiplier for high engagement
             
-            # Dislike penalty (reduces multiplier)
-            dislike_rate = dislikes / max(1, view_count)
-            dislike_penalty = max(0.5, 1.0 - (dislike_rate * 1.5))  # Down to 0.5x for high dislikes
-            
-            # Final engagement multiplier
-            final_engagement_multiplier = engagement_multiplier * dislike_penalty
+            # No separate dislike penalty - all reactions are treated as engagement
+            final_engagement_multiplier = engagement_multiplier
             
             # Create content metrics object
             content_metrics = ContentMetrics(
@@ -3323,11 +3320,12 @@ def content_calculator_interface():
             st.info(f"""
             **📊 Engagement Impact Analysis:**
             - Base Reward: {total_vcoin_base:,.0f} VCOIN
-            - Engagement Rate: {engagement_rate:.1%} (shares + likes + comments / views)
+            - Engagement Rate: {engagement_rate:.1%} (shares + reactions + comments / views)
             - Engagement Multiplier: {engagement_multiplier:.2f}x
-            - Dislike Penalty: {dislike_penalty:.2f}x
             - **Final Multiplier: {final_engagement_multiplier:.2f}x**
             - **Total Reward: {total_vcoin:,.0f} VCOIN** (${total_usd:,.2f})
+            
+            **Note**: Likes and dislikes are treated equally as engagement signals
             """)
             
             st.metric("💎 Total Content Reward", f"{total_vcoin:,.0f} VCOIN", f"${total_usd:,.2f}")
@@ -3338,45 +3336,38 @@ def content_calculator_interface():
             # Recalculate distribution with new total and viewer rewards
             creator_reward = total_vcoin * 0.40  # 40% to creator
             share_reward_pool = total_vcoin * 0.20  # 20% to sharers
-            viewer_reward_pool = total_vcoin * 0.05  # 5% to viewers (replaces reports)
-            like_reward_pool = total_vcoin * 0.10  # 10% to likers
-            dislike_reward_pool = total_vcoin * 0.05  # 5% to dislikers
-            comment_reward_pool = total_vcoin * 0.10  # 10% to commenters
+            viewer_reward_pool = total_vcoin * 0.075  # 7.5% to viewers
+            reaction_reward_pool = total_vcoin * 0.10  # 10% to reactions (likes + dislikes combined)
+            comment_reward_pool = total_vcoin * 0.125  # 12.5% to commenters
             platform_commission = total_vcoin * 0.10  # 10% to platform
             
             distribution_data = {
                 'Recipient': [
                     '👤 Creator',
                     '🔄 Sharers', 
-                    '👀 Viewers',  # Replaces reporters
-                    '👍 Likers',
-                    '👎 Dislikers', 
+                    '👀 Viewers',
+                    '👍👎 Reactions (Likes + Dislikes)',
                     '💬 Commenters',
-                    '🏢 ViWo Commission',
-                    '🎨 NFT Royalty Pool'
+                    '🏢 ViWo Commission'
                 ],
                 'VCOIN Amount': [
                     f"{creator_reward:,.0f}",
                     f"{share_reward_pool:,.0f}",
                     f"{viewer_reward_pool:,.0f}",
-                    f"{like_reward_pool:,.0f}",
-                    f"{dislike_reward_pool:,.0f}",
+                    f"{reaction_reward_pool:,.0f}",
                     f"{comment_reward_pool:,.0f}",
-                    f"{platform_commission:,.0f}",
-                    f"{total_vcoin * 0.0:,.0f}"  # No royalty pool for now
+                    f"{platform_commission:,.0f}"
                 ],
                 'USD Value': [
                     f"${creator_reward * vcoin_price:,.2f}",
                     f"${share_reward_pool * vcoin_price:,.2f}",
                     f"${viewer_reward_pool * vcoin_price:,.2f}",
-                    f"${like_reward_pool * vcoin_price:,.2f}",
-                    f"${dislike_reward_pool * vcoin_price:,.2f}",
+                    f"${reaction_reward_pool * vcoin_price:,.2f}",
                     f"${comment_reward_pool * vcoin_price:,.2f}",
-                    f"${platform_commission * vcoin_price:,.2f}",
-                    f"${0:,.2f}"
+                    f"${platform_commission * vcoin_price:,.2f}"
                 ],
                 'Percentage': [
-                    "40.0%", "20.0%", "5.0%", "10.0%", "5.0%", "10.0%", "10.0%", "0.0%"
+                    "40.0%", "20.0%", "7.5%", "10.0%", "12.5%", "10.0%"
                 ]
             }
             
@@ -3390,25 +3381,23 @@ def content_calculator_interface():
                 # Calculate per-action rewards
                 share_per_action = share_reward_pool / max(1, shares)
                 viewer_per_action = viewer_reward_pool / max(1, total_viewers)
-                like_per_action = like_reward_pool / max(1, likes)
-                dislike_per_action = dislike_reward_pool / max(1, dislikes)
+                total_reactions = likes + dislikes
+                reaction_per_action = reaction_reward_pool / max(1, total_reactions)
                 comment_per_action = comment_reward_pool / max(1, comments)
                 
                 individual_data = {
-                    'Action': ['🔄 Share', '👀 View', '👍 Like', '👎 Dislike', '💬 Comment'],
-                    'Count': [shares, total_viewers, likes, dislikes, comments],
+                    'Action': ['🔄 Share', '👀 View', '👍👎 Reaction (Like/Dislike)', '💬 Comment'],
+                    'Count': [shares, total_viewers, total_reactions, comments],
                     'Reward per Action': [
                         f"{share_per_action:,.3f} VCOIN" if shares > 0 else "0 VCOIN",
                         f"{viewer_per_action:,.3f} VCOIN" if total_viewers > 0 else "0 VCOIN",
-                        f"{like_per_action:,.3f} VCOIN" if likes > 0 else "0 VCOIN",
-                        f"{dislike_per_action:,.3f} VCOIN" if dislikes > 0 else "0 VCOIN",
+                        f"{reaction_per_action:,.3f} VCOIN" if total_reactions > 0 else "0 VCOIN",
                         f"{comment_per_action:,.3f} VCOIN" if comments > 0 else "0 VCOIN"
                     ],
                     'USD per Action': [
                         f"${share_per_action * vcoin_price:,.3f}" if shares > 0 else "$0.000",
                         f"${viewer_per_action * vcoin_price:,.3f}" if total_viewers > 0 else "$0.000",
-                        f"${like_per_action * vcoin_price:,.3f}" if likes > 0 else "$0.000",
-                        f"${dislike_per_action * vcoin_price:,.3f}" if dislikes > 0 else "$0.000",
+                        f"${reaction_per_action * vcoin_price:,.3f}" if total_reactions > 0 else "$0.000",
                         f"${comment_per_action * vcoin_price:,.3f}" if comments > 0 else "$0.000"
                     ]
                 }
@@ -3544,25 +3533,23 @@ def content_calculator_interface():
                               Accuracy Bonus × View Multiplier × View Count
                 ```
                 
-                #### **Step 7: Engagement Multiplier (NEW!)**
+                #### **Step 7: Engagement Multiplier (UPDATED!)**
                 ```
-                Engagement Rate = (Shares + Likes + Comments) ÷ Views
+                Total Reactions = Likes + Dislikes (treated equally)
+                Engagement Rate = (Shares + Total Reactions + Comments) ÷ Views
                 Engagement Multiplier = 1.0 + (Engagement Rate × 2.0)  [Max 3.0x]
-                Dislike Penalty = max(0.5, 1.0 - (Dislikes ÷ Views × 1.5))  [Min 0.5x]
-                Final Multiplier = Engagement Multiplier × Dislike Penalty
                 
-                Enhanced Total = Base Reward × Final Multiplier
+                Enhanced Total = Base Reward × Engagement Multiplier
                 ```
                 
-                #### **Step 8: Distribution Breakdown**
+                #### **Step 8: Distribution Breakdown (UPDATED!)**
                 ```
                 • Creator (40%): Enhanced Total × 0.40
                 • Engagement Pool (50%):
                   - Shares (20%): Enhanced Total × 0.20 ÷ Share Count
-                  - Viewers (5%): Enhanced Total × 0.05 ÷ Total Viewers  [NEW!]
-                  - Likes (10%): Enhanced Total × 0.10 ÷ Like Count
-                  - Dislikes (5%): Enhanced Total × 0.05 ÷ Dislike Count
-                  - Comments (10%): Enhanced Total × 0.10 ÷ Comment Count
+                  - Viewers (7.5%): Enhanced Total × 0.075 ÷ Total Viewers
+                  - Reactions (10%): Enhanced Total × 0.10 ÷ (Likes + Dislikes)
+                  - Comments (12.5%): Enhanced Total × 0.125 ÷ Comment Count
                 • ViWo Commission (10%): Enhanced Total × 0.10
                 ```
                 
@@ -3619,19 +3606,18 @@ def content_calculator_interface():
                 Base Reward = {base_pool:.4f} × {content_mult} × {quality_mult:.2f} × {accuracy_bonus:.2f} × {view_mult:.2f} × {view_count:,}
                 Base Reward = {total_vcoin_base:,.0f} VCOIN
                 
-                Engagement Rate = ({shares} + {likes} + {comments}) ÷ {view_count} = {engagement_rate:.1%}
+                Total Reactions = {likes} + {dislikes} = {total_reactions} (likes and dislikes treated equally)
+                Engagement Rate = ({shares} + {total_reactions} + {comments}) ÷ {view_count} = {engagement_rate:.1%}
                 Engagement Multiplier = 1.0 + ({engagement_rate:.3f} × 2.0) = {engagement_multiplier:.2f}x
-                Dislike Penalty = max(0.5, 1.0 - ({dislikes} ÷ {view_count} × 1.5)) = {dislike_penalty:.2f}x
-                Final Multiplier = {engagement_multiplier:.2f} × {dislike_penalty:.2f} = {final_engagement_multiplier:.2f}x
                 
                 **Enhanced Total = {total_vcoin_base:,.0f} × {final_engagement_multiplier:.2f} = {total_vcoin:,.0f} VCOIN (${total_usd:,.2f})**
                 ```
                 """)
                 
                 if daily_revenue > 0:
-                    st.info("💡 **Revenue-Backed Model**: Rewards are funded by platform revenue, with engagement-based multipliers for viral content.")
+                    st.info("💡 **Revenue-Backed Model**: Rewards funded by platform revenue. Likes and dislikes both count as positive engagement.")
                 else:
-                    st.info(f"💡 **Bootstrap Mode**: Pure VCOIN tokens from {daily_token_mint_rate}% daily minting, enhanced by engagement metrics. High engagement = higher rewards!")
+                    st.info(f"💡 **Bootstrap Mode**: Pure VCOIN tokens from {daily_token_mint_rate}% daily minting. All reactions (likes + dislikes) boost rewards equally!")
 
 def ab_comparison_interface():
     """A/B testing interface for comparing parameter sets"""
