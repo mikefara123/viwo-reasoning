@@ -642,12 +642,15 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
         # Price calculation (more realistic based on starting price and growth)
         # Combine revenue growth with initial market cap
         revenue_multiple = 8 + (current_revenue / params['daily_revenue'] - 1) * 2  # Dynamic multiple
-        market_cap = current_revenue * 365 * revenue_multiple
+        theoretical_market_cap = current_revenue * 365 * revenue_multiple
         
         # Price influenced by both market cap and initial price stability
-        market_price = market_cap / current_supply
+        market_price = theoretical_market_cap / current_supply
         price_stability_factor = 0.7  # 70% market-driven, 30% price stability
         current_price = (market_price * price_stability_factor) + (current_price * (1 - price_stability_factor))
+        
+        # Calculate actual market cap based on final token price and supply
+        market_cap = current_supply * current_price
         
         # Update staked tokens
         staking_rate = min(0.6, 0.3 + (params['staking_apy'] - 0.05) * 2)  # Higher APY = more staking
@@ -714,6 +717,60 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
     st.subheader("💰 Token Price Impact Analysis")
     starting_price = params['initial_price']
     
+    # Calculation verification section
+    st.subheader("🔍 Calculation Verification")
+    
+    with st.expander("📊 Key Metrics Breakdown", expanded=False):
+        st.markdown("**Final Calculations Verification:**")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown(f"""
+            **Token Price Calculation:**
+            - Starting Price: ${starting_price:.7f}
+            - Final Price: ${final_result['token_price']:.7f}
+            - Price Change: {((final_result['token_price'] / initial_result['token_price']) - 1) * 100:+.1f}%
+            
+            **Market Cap Calculation:**
+            - Token Supply: {final_result['current_supply']:,.0f}
+            - Token Price: ${final_result['token_price']:.7f}
+            - Market Cap: {final_result['current_supply']:,.0f} × ${final_result['token_price']:.7f} = ${final_result['market_cap']:,.0f}
+            """)
+        
+        with col2:
+            st.markdown(f"""
+            **User Metrics:**
+            - Starting Users: {initial_result['daily_users']:,.0f}
+            - Final Users: {final_result['daily_users']:,.0f}
+            - User Change: {((final_result['daily_users'] / initial_result['daily_users']) - 1) * 100:+.1f}%
+            - Monthly Churn Rate: {params['monthly_churn_rate'] * 100:.1f}%
+            - User Retention: {final_result['user_retention_rate']:.1f}%
+            
+            **Supply Metrics:**
+            - Starting Supply: {initial_result['current_supply']:,.0f}
+            - Final Supply: {final_result['current_supply']:,.0f}
+            - Supply Change: {((final_result['current_supply'] / initial_result['current_supply']) - 1) * 100:+.1f}%
+            """)
+        
+        # Verify market cap calculation
+        calculated_market_cap = final_result['current_supply'] * final_result['token_price']
+        market_cap_match = abs(calculated_market_cap - final_result['market_cap']) < 1
+        
+        if market_cap_match:
+            st.success("✅ Market Cap calculation verified: Supply × Price = Market Cap")
+        else:
+            st.error(f"❌ Market Cap mismatch: Expected ${calculated_market_cap:,.0f}, Got ${final_result['market_cap']:,.0f}")
+        
+        # Verify retention calculation
+        expected_retention = 100 - (params['monthly_churn_rate'] * 100)
+        retention_match = abs(expected_retention - final_result['user_retention_rate']) < 0.1
+        
+        if retention_match:
+            st.success("✅ User Retention calculation verified")
+        else:
+            st.warning(f"⚠️ Retention calculation: Expected {expected_retention:.1f}%, Got {final_result['user_retention_rate']:.1f}%")
+    
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
@@ -736,25 +793,37 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
     
     # Key Metrics
     st.subheader("📊 Simulation Results Summary")
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    # Main KPI display matching your format
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
     
     with col1:
-        st.metric("Final Token Price", f"${final_result['token_price']:.7f}",
-                 f"{((final_result['token_price'] / initial_result['token_price']) - 1) * 100:+.1f}%")
-        st.metric("Market Cap", f"${final_result['market_cap']:,.0f}")
+        price_change = ((final_result['token_price'] / initial_result['token_price']) - 1) * 100
+        st.metric("Final Token Price", f"${final_result['token_price']:.7f}", f"{price_change:+.1f}%")
     
     with col2:
-        st.metric("Daily Active Users", f"{final_result['daily_users']:,.0f}",
-                 f"{((final_result['daily_users'] / initial_result['daily_users']) - 1) * 100:+.1f}%")
-        st.metric("User Retention", f"{final_result['user_retention_rate']:.1f}%")
+        st.metric("Market Cap", f"${final_result['market_cap']:,.0f}")
     
     with col3:
-        st.metric("Token Supply", f"{final_result['current_supply']:,.0f}",
-                 f"{((final_result['current_supply'] / initial_result['current_supply']) - 1) * 100:+.1f}%")
-        st.metric("Staked Tokens", f"{final_result['staked_percentage']:.1f}%")
+        user_change = ((final_result['daily_users'] / initial_result['daily_users']) - 1) * 100
+        st.metric("Daily Active Users", f"{final_result['daily_users']:,.0f}", f"{user_change:+.1f}%")
     
     with col4:
+        st.metric("User Retention", f"{final_result['user_retention_rate']:.1f}%")
+    
+    with col5:
+        supply_change = ((final_result['current_supply'] / initial_result['current_supply']) - 1) * 100
+        st.metric("Token Supply", f"{final_result['current_supply']:,.0f}", f"{supply_change:+.1f}%")
+    
+    # Additional metrics row
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        st.metric("Staked Tokens", f"{final_result['staked_percentage']:.1f}%")
+    
+    with col2:
         st.metric("Platform Health", f"{final_result['platform_health']:.1f}/100")
+    
+    with col3:
         st.metric("Economy Score", f"{final_result['token_economy_score']:.1f}/100")
     
     # Charts
@@ -865,29 +934,37 @@ def reverse_simulation_interface():
                                             min_value=100, max_value=10_000_000, value=10_000, step=1000,
                                             help="💡 Expected platform size for calculations")
         
-        # Better token price input
+        # Enhanced token price input
         st.markdown("**Assumed Token Price ($)**")
-        price_method_reverse = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_reverse")
         
-        if price_method_reverse == "Quick Select":
-            price_options = {
-                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
-                "$0.001": 0.001, "$0.01": 0.01, "$0.10": 0.10, "$1.00": 1.00
-            }
-            selected_price = st.selectbox("Select Price:", list(price_options.keys()), index=5, key="reverse_price_select")
-            assumed_token_price = price_options[selected_price]
-        else:
-            price_text = st.text_input("Enter Price:", value="0.10", key="reverse_price_text")
-            try:
-                assumed_token_price = float(price_text)
-                if assumed_token_price <= 0:
-                    st.error("⚠️ Price must be > 0")
+        col1, col2 = st.columns([3, 1])
+        common_prices = ["0.0000001", "0.00001", "0.0001", "0.001", "0.01", "0.10", "1.00"]
+        
+        with col1:
+            dropdown_options = common_prices + ["Custom..."]
+            selected_option = st.selectbox(
+                "Select or enter price:",
+                dropdown_options,
+                index=5,
+                key="price_dropdown_reverse"
+            )
+        
+        with col2:
+            if selected_option == "Custom...":
+                custom_price = st.text_input("Custom:", value="0.10", key="custom_price_reverse")
+                try:
+                    assumed_token_price = float(custom_price)
+                    if assumed_token_price <= 0:
+                        st.error("⚠️ Must be > 0")
+                        assumed_token_price = 0.10
+                except ValueError:
+                    st.error("⚠️ Invalid")
                     assumed_token_price = 0.10
-            except ValueError:
-                st.error("⚠️ Invalid number")
-                assumed_token_price = 0.10
+            else:
+                assumed_token_price = float(selected_option)
+                st.write("")
         
-        st.success(f"💰 Using Price: ${assumed_token_price:.7f}")
+        st.success(f"💰 Price: ${assumed_token_price:.7f}")
         
         creator_engagement_ratio = st.slider("Creator vs Consumer Reward Ratio", 
                                            min_value=1.0, max_value=10.0, value=4.0, step=0.5,
@@ -1009,27 +1086,35 @@ def cold_start_scenario_interface():
     with col1:
         st.subheader("🪙 ICO & Token Setup")
         
-        # Better token price input
+        # Enhanced token price input
         st.markdown("**Initial Token Price ($)**")
-        price_method_cold = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_cold")
         
-        if price_method_cold == "Quick Select":
-            price_options = {
-                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
-                "$0.001": 0.001, "$0.01": 0.01, "$0.05": 0.05, "$0.10": 0.10
-            }
-            selected_price = st.selectbox("Select ICO Price:", list(price_options.keys()), index=5, key="cold_price_select")
-            initial_token_price = price_options[selected_price]
-        else:
-            price_text = st.text_input("Enter ICO Price:", value="0.05", key="cold_price_text")
-            try:
-                initial_token_price = float(price_text)
-                if initial_token_price <= 0:
-                    st.error("⚠️ Price must be > 0")
+        col1, col2 = st.columns([3, 1])
+        common_prices = ["0.0000001", "0.00001", "0.0001", "0.001", "0.01", "0.05", "0.10"]
+        
+        with col1:
+            dropdown_options = common_prices + ["Custom..."]
+            selected_option = st.selectbox(
+                "Select or enter ICO price:",
+                dropdown_options,
+                index=5,
+                key="price_dropdown_cold"
+            )
+        
+        with col2:
+            if selected_option == "Custom...":
+                custom_price = st.text_input("Custom:", value="0.05", key="custom_price_cold")
+                try:
+                    initial_token_price = float(custom_price)
+                    if initial_token_price <= 0:
+                        st.error("⚠️ Must be > 0")
+                        initial_token_price = 0.05
+                except ValueError:
+                    st.error("⚠️ Invalid")
                     initial_token_price = 0.05
-            except ValueError:
-                st.error("⚠️ Invalid number")
-                initial_token_price = 0.05
+            else:
+                initial_token_price = float(selected_option)
+                st.write("")
         
         st.success(f"💰 ICO Price: ${initial_token_price:.7f}")
         
@@ -1573,27 +1658,35 @@ def vesting_unlocks_interface():
         
         st.subheader("💹 Market Impact")
         
-        # Better token price input
+        # Enhanced token price input
         st.markdown("**Token Price at TGE ($)**")
-        price_method_vesting = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_vesting")
         
-        if price_method_vesting == "Quick Select":
-            price_options = {
-                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
-                "$0.001": 0.001, "$0.01": 0.01, "$0.10": 0.10, "$1.00": 1.00
-            }
-            selected_price = st.selectbox("Select TGE Price:", list(price_options.keys()), index=5, key="vesting_price_select")
-            initial_token_price = price_options[selected_price]
-        else:
-            price_text = st.text_input("Enter TGE Price:", value="0.10", key="vesting_price_text")
-            try:
-                initial_token_price = float(price_text)
-                if initial_token_price <= 0:
-                    st.error("⚠️ Price must be > 0")
+        col1, col2 = st.columns([3, 1])
+        common_prices = ["0.0000001", "0.00001", "0.0001", "0.001", "0.01", "0.10", "1.00"]
+        
+        with col1:
+            dropdown_options = common_prices + ["Custom..."]
+            selected_option = st.selectbox(
+                "Select or enter TGE price:",
+                dropdown_options,
+                index=5,
+                key="price_dropdown_vesting"
+            )
+        
+        with col2:
+            if selected_option == "Custom...":
+                custom_price = st.text_input("Custom:", value="0.10", key="custom_price_vesting")
+                try:
+                    initial_token_price = float(custom_price)
+                    if initial_token_price <= 0:
+                        st.error("⚠️ Must be > 0")
+                        initial_token_price = 0.10
+                except ValueError:
+                    st.error("⚠️ Invalid")
                     initial_token_price = 0.10
-            except ValueError:
-                st.error("⚠️ Invalid number")
-                initial_token_price = 0.10
+            else:
+                initial_token_price = float(selected_option)
+                st.write("")
         
         st.success(f"💰 TGE Price: ${initial_token_price:.7f}")
         
@@ -1813,29 +1906,37 @@ def security_stress_test_interface():
                                                min_value=1_000, max_value=1_000_000, value=50_000, step=5_000,
                                                help="💡 Normal daily platform revenue")
         
-        # Better token price input
+        # Enhanced token price input
         st.markdown("**Healthy Token Price ($)**")
-        price_method_stress = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_stress")
         
-        if price_method_stress == "Quick Select":
-            price_options = {
-                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
-                "$0.001": 0.001, "$0.01": 0.01, "$0.10": 0.10, "$1.00": 1.00
-            }
-            selected_price = st.selectbox("Select Healthy Price:", list(price_options.keys()), index=5, key="stress_price_select")
-            healthy_token_price = price_options[selected_price]
-        else:
-            price_text = st.text_input("Enter Healthy Price:", value="0.10", key="stress_price_text")
-            try:
-                healthy_token_price = float(price_text)
-                if healthy_token_price <= 0:
-                    st.error("⚠️ Price must be > 0")
+        col1, col2 = st.columns([3, 1])
+        common_prices = ["0.0000001", "0.00001", "0.0001", "0.001", "0.01", "0.10", "1.00"]
+        
+        with col1:
+            dropdown_options = common_prices + ["Custom..."]
+            selected_option = st.selectbox(
+                "Select or enter healthy price:",
+                dropdown_options,
+                index=5,
+                key="price_dropdown_stress"
+            )
+        
+        with col2:
+            if selected_option == "Custom...":
+                custom_price = st.text_input("Custom:", value="0.10", key="custom_price_stress")
+                try:
+                    healthy_token_price = float(custom_price)
+                    if healthy_token_price <= 0:
+                        st.error("⚠️ Must be > 0")
+                        healthy_token_price = 0.10
+                except ValueError:
+                    st.error("⚠️ Invalid")
                     healthy_token_price = 0.10
-            except ValueError:
-                st.error("⚠️ Invalid number")
-                healthy_token_price = 0.10
+            else:
+                healthy_token_price = float(selected_option)
+                st.write("")
         
-        st.success(f"💰 Baseline Price: ${healthy_token_price:.7f}")
+        st.success(f"💰 Baseline: ${healthy_token_price:.7f}")
         
         circulating_supply = st.number_input("Circulating Supply", 
                                            min_value=1_000_000, max_value=10_000_000_000, value=1_000_000_000, step=1_000_000,
@@ -2212,38 +2313,58 @@ def parameter_testing_interface():
         
         st.subheader("🪙 Token Supply & Pricing")
         
-        # Better token price input with text field
+        # Enhanced token price input with editable dropdown
         st.markdown("**Starting Token Price ($)**")
-        price_input_method = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_param")
         
-        if price_input_method == "Quick Select":
-            price_options = {
-                "$0.0000001 (Ultra-micro)": 0.0000001,
-                "$0.00001 (Micro)": 0.00001,
-                "$0.0001 (Very Low)": 0.0001,
-                "$0.001 (Low)": 0.001,
-                "$0.01 (Medium-Low)": 0.01,
-                "$0.10 (Medium)": 0.10,
-                "$1.00 (High)": 1.00
-            }
-            selected_price_label = st.selectbox("Select Price Range:", list(price_options.keys()), index=5)
-            initial_token_price = price_options[selected_price_label]
-            st.success(f"💰 Selected Price: ${initial_token_price:.7f}")
-        else:
-            price_text = st.text_input("Enter Token Price:", value="0.10", 
-                                     help="💡 Enter any decimal value (e.g., 0.0001, 0.00003, 0.15)")
-            try:
-                initial_token_price = float(price_text)
-                if initial_token_price <= 0:
-                    st.error("⚠️ Token price must be greater than 0")
+        # Create a list of common values for the dropdown
+        common_prices = ["0.0000001", "0.00001", "0.0001", "0.001", "0.01", "0.10", "1.00"]
+        
+        # Use selectbox with option to add custom value
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            # Add "Custom..." option to the list
+            dropdown_options = common_prices + ["Custom..."]
+            selected_option = st.selectbox(
+                "Select or enter token price:",
+                dropdown_options,
+                index=5,  # Default to 0.10
+                help="💡 Select a common price or choose 'Custom...' to enter your own value",
+                key="price_dropdown_param"
+            )
+        
+        with col2:
+            if selected_option == "Custom...":
+                custom_price = st.text_input(
+                    "Custom Price:",
+                    value="0.10",
+                    key="custom_price_param",
+                    help="Enter exact value"
+                )
+                try:
+                    initial_token_price = float(custom_price)
+                    if initial_token_price <= 0:
+                        st.error("⚠️ Must be > 0")
+                        initial_token_price = 0.10
+                    elif initial_token_price > 100:
+                        st.warning("⚠️ Very high price")
+                except ValueError:
+                    st.error("⚠️ Invalid number")
                     initial_token_price = 0.10
-                elif initial_token_price > 100:
-                    st.warning("⚠️ Very high token price - ensure this is intentional")
-                else:
-                    st.success(f"💰 Token Price: ${initial_token_price:.7f}")
-            except ValueError:
-                st.error("⚠️ Please enter a valid number")
-                initial_token_price = 0.10
+            else:
+                initial_token_price = float(selected_option)
+                st.write("") # Empty space for alignment
+        
+        # Show selected price
+        st.success(f"💰 Token Price: ${initial_token_price:.7f}")
+        
+        # Quick add custom values to dropdown (for future use)
+        if selected_option == "Custom..." and 'custom_price_param' in st.session_state:
+            custom_val = st.session_state.custom_price_param
+            if custom_val and custom_val not in common_prices:
+                if st.button("💾 Save this price for quick access", key="save_price_param"):
+                    st.success(f"Price ${custom_val} saved! (Note: Will be available in next session)")
+                    # In a real app, you'd save this to a config file or database
         
         initial_supply = st.number_input("Initial Supply (millions)", 
                                         min_value=100, max_value=5000, value=1000, step=100,
