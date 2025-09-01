@@ -6,22 +6,30 @@
 
 **Problem:** `installer returned a non-zero exit code`
 
-**Root Cause:** Complex version constraints and optional dependencies in `requirements.txt`
+**Root Causes & Solutions:**
+1. **Complex version constraints** in `requirements.txt` → **FIXED:** Simplified to essential packages only
+2. **Comments in packages.txt** being treated as package names → **FIXED:** Empty packages.txt file
+3. **Optional dependencies** not used in app → **FIXED:** Removed unnecessary packages
 
-**Solution Applied:**
-- ✅ **Simplified requirements.txt** to only essential packages
+**Solutions Applied:**
+- ✅ **Simplified requirements.txt** to only 4 essential packages
+- ✅ **Emptied packages.txt** (no system packages needed)
 - ✅ **Removed version constraints** that cause conflicts
-- ✅ **Removed optional dependencies** not used in the app
+- ✅ **Removed deprecated config options** from config.toml
 
 ### 📁 **UPDATED FILES FOR DEPLOYMENT:**
 
 #### **Fixed `requirements.txt`:**
 ```
-# VCOIN Economic Playground - Streamlit Cloud Compatible
 streamlit
 pandas
 plotly
 numpy
+```
+
+#### **Fixed `packages.txt`:**
+```
+(completely empty - no comments!)
 ```
 
 #### **Fixed `.streamlit/config.toml`:**
