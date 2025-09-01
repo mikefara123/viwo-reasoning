@@ -587,8 +587,11 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
     current_supply = params['initial_supply']
     current_users = params['daily_users']
     current_revenue = params['daily_revenue']
-    current_price = params['initial_price']
+    current_price = params['initial_price']  # Use user-specified starting price
     staked_tokens = current_supply * 0.3  # Assume 30% initially staked
+    
+    # Calculate initial market cap based on starting price
+    initial_market_cap = current_supply * current_price
     
     # Simulate each day
     for day in range(days):
@@ -636,9 +639,15 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
         daily_inflation = current_supply * (params['annual_inflation_rate'] / 365)
         current_supply = min(params['max_supply'], current_supply + daily_inflation - total_burned)
         
-        # Price calculation (simplified)
-        market_cap = current_revenue * 365 * 10  # 10x annual revenue multiple
-        current_price = market_cap / current_supply
+        # Price calculation (more realistic based on starting price and growth)
+        # Combine revenue growth with initial market cap
+        revenue_multiple = 8 + (current_revenue / params['daily_revenue'] - 1) * 2  # Dynamic multiple
+        market_cap = current_revenue * 365 * revenue_multiple
+        
+        # Price influenced by both market cap and initial price stability
+        market_price = market_cap / current_supply
+        price_stability_factor = 0.7  # 70% market-driven, 30% price stability
+        current_price = (market_price * price_stability_factor) + (current_price * (1 - price_stability_factor))
         
         # Update staked tokens
         staking_rate = min(0.6, 0.3 + (params['staking_apy'] - 0.05) * 2)  # Higher APY = more staking
@@ -701,7 +710,32 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
     st.header("📊 Enhanced Simulation Results")
     st.markdown(f"**{months}-Month Economic Simulation Complete**")
     
+    # Starting price impact summary
+    st.subheader("💰 Token Price Impact Analysis")
+    starting_price = params['initial_price']
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        daily_token_pool = (params['daily_revenue'] * 0.7) / starting_price
+        st.metric("Daily Token Reward Pool", f"{daily_token_pool:,.0f} VCOIN")
+        creator_daily_tokens = daily_token_pool * params['creator_share']
+        st.metric("Creator Daily Tokens", f"{creator_daily_tokens:,.0f} VCOIN")
+    
+    with col2:
+        engagement_daily_tokens = daily_token_pool * params['engagement_share']
+        st.metric("Engagement Daily Tokens", f"{engagement_daily_tokens:,.0f} VCOIN")
+        avg_user_tokens = engagement_daily_tokens / params['daily_users']
+        st.metric("Avg User Daily Tokens", f"{avg_user_tokens:.1f} VCOIN")
+    
+    with col3:
+        avg_creator_usd = (creator_daily_tokens / (params['daily_users'] * params['content_creation_rate'])) * starting_price
+        st.metric("Avg Creator Daily USD", f"${avg_creator_usd:.2f}")
+        avg_user_usd = avg_user_tokens * starting_price
+        st.metric("Avg User Daily USD", f"${avg_user_usd:.3f}")
+    
     # Key Metrics
+    st.subheader("📊 Simulation Results Summary")
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     
     with col1:
@@ -831,9 +865,29 @@ def reverse_simulation_interface():
                                             min_value=100, max_value=10_000_000, value=10_000, step=1000,
                                             help="💡 Expected platform size for calculations")
         
-        assumed_token_price = st.number_input("Assumed Token Price ($)", 
-                                            min_value=0.0000001, max_value=10.0, value=0.10, step=0.0000001,
-                                            help="💡 Expected token price at target earnings period", format="%.7f")
+        # Better token price input
+        st.markdown("**Assumed Token Price ($)**")
+        price_method_reverse = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_reverse")
+        
+        if price_method_reverse == "Quick Select":
+            price_options = {
+                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
+                "$0.001": 0.001, "$0.01": 0.01, "$0.10": 0.10, "$1.00": 1.00
+            }
+            selected_price = st.selectbox("Select Price:", list(price_options.keys()), index=5, key="reverse_price_select")
+            assumed_token_price = price_options[selected_price]
+        else:
+            price_text = st.text_input("Enter Price:", value="0.10", key="reverse_price_text")
+            try:
+                assumed_token_price = float(price_text)
+                if assumed_token_price <= 0:
+                    st.error("⚠️ Price must be > 0")
+                    assumed_token_price = 0.10
+            except ValueError:
+                st.error("⚠️ Invalid number")
+                assumed_token_price = 0.10
+        
+        st.success(f"💰 Using Price: ${assumed_token_price:.7f}")
         
         creator_engagement_ratio = st.slider("Creator vs Consumer Reward Ratio", 
                                            min_value=1.0, max_value=10.0, value=4.0, step=0.5,
@@ -955,9 +1009,29 @@ def cold_start_scenario_interface():
     with col1:
         st.subheader("🪙 ICO & Token Setup")
         
-        initial_token_price = st.number_input("Initial Token Price ($)", 
-                                            min_value=0.0000001, max_value=1.0, value=0.05, step=0.0000001,
-                                            help="💡 Token price at launch (from ICO/initial valuation)", format="%.7f")
+        # Better token price input
+        st.markdown("**Initial Token Price ($)**")
+        price_method_cold = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_cold")
+        
+        if price_method_cold == "Quick Select":
+            price_options = {
+                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
+                "$0.001": 0.001, "$0.01": 0.01, "$0.05": 0.05, "$0.10": 0.10
+            }
+            selected_price = st.selectbox("Select ICO Price:", list(price_options.keys()), index=5, key="cold_price_select")
+            initial_token_price = price_options[selected_price]
+        else:
+            price_text = st.text_input("Enter ICO Price:", value="0.05", key="cold_price_text")
+            try:
+                initial_token_price = float(price_text)
+                if initial_token_price <= 0:
+                    st.error("⚠️ Price must be > 0")
+                    initial_token_price = 0.05
+            except ValueError:
+                st.error("⚠️ Invalid number")
+                initial_token_price = 0.05
+        
+        st.success(f"💰 ICO Price: ${initial_token_price:.7f}")
         
         ico_tokens_sold = st.number_input("ICO Tokens Sold (millions)", 
                                         min_value=1, max_value=1000, value=100, step=10,
@@ -1499,9 +1573,29 @@ def vesting_unlocks_interface():
         
         st.subheader("💹 Market Impact")
         
-        initial_token_price = st.number_input("Initial Token Price ($)", 
-                                            min_value=0.0000001, max_value=10.0, value=0.10, step=0.0000001,
-                                            help="💡 Token price at TGE (Token Generation Event)", format="%.7f")
+        # Better token price input
+        st.markdown("**Token Price at TGE ($)**")
+        price_method_vesting = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_vesting")
+        
+        if price_method_vesting == "Quick Select":
+            price_options = {
+                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
+                "$0.001": 0.001, "$0.01": 0.01, "$0.10": 0.10, "$1.00": 1.00
+            }
+            selected_price = st.selectbox("Select TGE Price:", list(price_options.keys()), index=5, key="vesting_price_select")
+            initial_token_price = price_options[selected_price]
+        else:
+            price_text = st.text_input("Enter TGE Price:", value="0.10", key="vesting_price_text")
+            try:
+                initial_token_price = float(price_text)
+                if initial_token_price <= 0:
+                    st.error("⚠️ Price must be > 0")
+                    initial_token_price = 0.10
+            except ValueError:
+                st.error("⚠️ Invalid number")
+                initial_token_price = 0.10
+        
+        st.success(f"💰 TGE Price: ${initial_token_price:.7f}")
         
         unlock_sell_pressure = st.slider("Unlock Sell Pressure (%)", 
                                         min_value=5, max_value=80, value=30, step=5,
@@ -1719,9 +1813,29 @@ def security_stress_test_interface():
                                                min_value=1_000, max_value=1_000_000, value=50_000, step=5_000,
                                                help="💡 Normal daily platform revenue")
         
-        healthy_token_price = st.number_input("Healthy Token Price ($)", 
-                                            min_value=0.0000001, max_value=10.0, value=0.10, step=0.0000001,
-                                            help="💡 Normal token price", format="%.7f")
+        # Better token price input
+        st.markdown("**Healthy Token Price ($)**")
+        price_method_stress = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_stress")
+        
+        if price_method_stress == "Quick Select":
+            price_options = {
+                "$0.0000001": 0.0000001, "$0.00001": 0.00001, "$0.0001": 0.0001,
+                "$0.001": 0.001, "$0.01": 0.01, "$0.10": 0.10, "$1.00": 1.00
+            }
+            selected_price = st.selectbox("Select Healthy Price:", list(price_options.keys()), index=5, key="stress_price_select")
+            healthy_token_price = price_options[selected_price]
+        else:
+            price_text = st.text_input("Enter Healthy Price:", value="0.10", key="stress_price_text")
+            try:
+                healthy_token_price = float(price_text)
+                if healthy_token_price <= 0:
+                    st.error("⚠️ Price must be > 0")
+                    healthy_token_price = 0.10
+            except ValueError:
+                st.error("⚠️ Invalid number")
+                healthy_token_price = 0.10
+        
+        st.success(f"💰 Baseline Price: ${healthy_token_price:.7f}")
         
         circulating_supply = st.number_input("Circulating Supply", 
                                            min_value=1_000_000, max_value=10_000_000_000, value=1_000_000_000, step=1_000_000,
@@ -2096,7 +2210,41 @@ def parameter_testing_interface():
                                          min_value=1, max_value=20, value=8, step=1,
                                          help="💡 New token creation rate - should decrease over time")
         
-        st.subheader("🪙 Token Supply")
+        st.subheader("🪙 Token Supply & Pricing")
+        
+        # Better token price input with text field
+        st.markdown("**Starting Token Price ($)**")
+        price_input_method = st.radio("Input Method:", ["Quick Select", "Custom Entry"], horizontal=True, key="price_method_param")
+        
+        if price_input_method == "Quick Select":
+            price_options = {
+                "$0.0000001 (Ultra-micro)": 0.0000001,
+                "$0.00001 (Micro)": 0.00001,
+                "$0.0001 (Very Low)": 0.0001,
+                "$0.001 (Low)": 0.001,
+                "$0.01 (Medium-Low)": 0.01,
+                "$0.10 (Medium)": 0.10,
+                "$1.00 (High)": 1.00
+            }
+            selected_price_label = st.selectbox("Select Price Range:", list(price_options.keys()), index=5)
+            initial_token_price = price_options[selected_price_label]
+            st.success(f"💰 Selected Price: ${initial_token_price:.7f}")
+        else:
+            price_text = st.text_input("Enter Token Price:", value="0.10", 
+                                     help="💡 Enter any decimal value (e.g., 0.0001, 0.00003, 0.15)")
+            try:
+                initial_token_price = float(price_text)
+                if initial_token_price <= 0:
+                    st.error("⚠️ Token price must be greater than 0")
+                    initial_token_price = 0.10
+                elif initial_token_price > 100:
+                    st.warning("⚠️ Very high token price - ensure this is intentional")
+                else:
+                    st.success(f"💰 Token Price: ${initial_token_price:.7f}")
+            except ValueError:
+                st.error("⚠️ Please enter a valid number")
+                initial_token_price = 0.10
+        
         initial_supply = st.number_input("Initial Supply (millions)", 
                                         min_value=100, max_value=5000, value=1000, step=100,
                                         help="💡 Starting token supply at launch") * 1_000_000
@@ -2157,6 +2305,16 @@ def parameter_testing_interface():
     if daily_revenue < 100:
         st.info("💡 **Early Stage**: Low revenue is normal for MVP testing and early-stage platforms.")
     
+    # Token price impact guidance
+    if initial_token_price < 0.001:
+        st.info("💡 **Micro Token**: Ultra-low price enables high token rewards with small USD amounts.")
+    elif initial_token_price > 1.0:
+        st.warning("⚠️ **High-Value Token**: High price means fewer tokens distributed - ensure reward amounts are sufficient.")
+    
+    # Calculate daily token rewards estimate
+    estimated_daily_tokens = (daily_revenue * 0.7) / initial_token_price  # 70% of revenue to rewards
+    st.info(f"💰 **Estimated Daily Token Rewards**: {estimated_daily_tokens:,.0f} VCOIN (based on {initial_token_price:.7f} price)")
+    
     # Main simulation execution
     if execute_simulation or 'simulation_executed' not in st.session_state:
         st.session_state.simulation_executed = True
@@ -2180,7 +2338,7 @@ def parameter_testing_interface():
             'user_acquisition_cost': user_acquisition_cost,
             'avg_session_minutes': avg_session_minutes,
             'token_velocity': token_velocity,
-            'initial_price': 0.10  # Will be calculated based on revenue
+            'initial_price': initial_token_price  # User-specified starting price
         }
         
         # Convert months to days for simulation
@@ -2239,7 +2397,8 @@ User Behavior:
 - Content Creation Rate: {results_data['input_parameters']['content_creation_rate']:.1%}
 - Token Velocity: {results_data['input_parameters']['token_velocity']:.1f}x annually
 
-Token Supply:
+Token Supply & Pricing:
+- Starting Token Price: ${results_data['input_parameters']['initial_price']:.7f}
 - Initial Supply: {results_data['input_parameters']['initial_supply']:,} VCOIN
 - Max Supply: {results_data['input_parameters']['max_supply']:,} VCOIN
 
