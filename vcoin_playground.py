@@ -56,54 +56,102 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
-    """Main playground interface"""
+    """Main playground interface with sidebar navigation"""
     
     # Header
     st.markdown('<h1 class="main-header">🪙 VCOIN Economic Playground</h1>', unsafe_allow_html=True)
     st.markdown("**Test tokenomics parameters and see real-time economic impact**")
     
-    # Create tabs for different tools
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
-        "🎛️ Parameter Testing", 
+    # Sidebar navigation
+    st.sidebar.title("🧭 VCOIN Analysis Suite")
+    st.sidebar.markdown("---")
+    
+    # Group simulations by category
+    st.sidebar.markdown("### 📊 Core Economics")
+    core_options = [
+        "🎛️ Parameter Testing",
         "💰 Price Discovery", 
-        "🎬 Content Calculator", 
-        "⚔️ A/B Comparison",
+        "🎬 Content Calculator",
+        "⚔️ A/B Comparison"
+    ]
+    
+    st.sidebar.markdown("### 💼 Investment Planning")
+    investment_options = [
         "🏦 Token Initial Valuation",
         "🔄 Reverse Simulation",
-        "🚀 Cold Start Scenario",
+        "🚀 Cold Start Scenario"
+    ]
+    
+    st.sidebar.markdown("### 🔬 Advanced Analysis")
+    advanced_options = [
         "🏛️ Governance & DAO",
         "📅 Vesting & Unlocks",
         "🛡️ Security & Stress Test"
-    ])
+    ]
     
-    with tab1:
+    # Create grouped selection
+    all_options = core_options + investment_options + advanced_options
+    
+    selected_tab = st.sidebar.radio(
+        "Select Analysis Tool:",
+        all_options,
+        index=0
+    )
+    
+    # Add helpful info
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 💡 Quick Tips:")
+    
+    if selected_tab in core_options:
+        st.sidebar.info("🎯 **Core Economics**: Test fundamental tokenomics parameters and economic sustainability.")
+    elif selected_tab in investment_options:
+        st.sidebar.info("💼 **Investment Planning**: Calculate ICO pricing, plan token launch, and set target earnings.")
+    elif selected_tab in advanced_options:
+        st.sidebar.info("🔬 **Advanced Analysis**: Test governance, vesting schedules, and economic resilience.")
+    
+    # Add current selection indicator
+    st.sidebar.markdown("---")
+    st.sidebar.success(f"📍 **Current:** {selected_tab.split(' ', 1)[1]}")
+    
+    # Add app info
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ℹ️ About VCOIN")
+    st.sidebar.markdown("""
+    **Professional tokenomics simulation suite for ViWo's social media platform.**
+    
+    🎯 **Features:**
+    - 10 comprehensive analysis tools
+    - Professional export reports
+    - Ultra-precise token pricing
+    - Economic resilience testing
+    
+    🚀 **Perfect for:**
+    - Investor presentations
+    - Team planning sessions
+    - ICO preparation
+    - Economic optimization
+    """)
+    
+    # Display selected interface
+    if selected_tab == "🎛️ Parameter Testing":
         parameter_testing_interface()
-    
-    with tab2:
+    elif selected_tab == "💰 Price Discovery":
         price_discovery_interface()
-    
-    with tab3:
+    elif selected_tab == "🎬 Content Calculator":
         content_calculator_interface()
-    
-    with tab4:
+    elif selected_tab == "⚔️ A/B Comparison":
         ab_comparison_interface()
-    
-    with tab5:
+    elif selected_tab == "🏦 Token Initial Valuation":
         token_initial_valuation_interface()
-    
-    with tab6:
+    elif selected_tab == "🔄 Reverse Simulation":
         reverse_simulation_interface()
-    
-    with tab7:
+    elif selected_tab == "🚀 Cold Start Scenario":
         cold_start_scenario_interface()
-    
-    with tab8:
+    elif selected_tab == "🏛️ Governance & DAO":
         governance_dao_interface()
-    
-    with tab9:
+    elif selected_tab == "📅 Vesting & Unlocks":
         vesting_unlocks_interface()
-    
-    with tab10:
+    elif selected_tab == "🛡️ Security & Stress Test":
         security_stress_test_interface()
 
 def token_initial_valuation_interface():
