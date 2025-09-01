@@ -1136,9 +1136,42 @@ def cold_start_scenario_interface():
                                            min_value=10, max_value=100_000, value=1_000, step=100,
                                            help="💡 Users on day 1 of platform launch")
         
-        launch_daily_revenue = st.number_input("Launch Daily Revenue ($)", 
-                                             min_value=10, max_value=50_000, value=500, step=50,
-                                             help="💡 Platform revenue on day 1")
+        # Revenue mode selection
+        st.markdown("**💰 Revenue Model**")
+        revenue_mode = st.radio(
+            "Choose reward funding source:",
+            ["Bootstrap Mode (Token-Only)", "Revenue-Supported Mode"],
+            help="💡 Bootstrap: Rewards from token minting only. Revenue-Supported: Mix of tokens + revenue"
+        )
+        
+        if revenue_mode == "Revenue-Supported Mode":
+            launch_daily_revenue = st.number_input("Launch Daily Revenue ($)", 
+                                                 min_value=10, max_value=50_000, value=500, step=50,
+                                                 help="💡 Platform revenue on day 1")
+            revenue_to_rewards_percent = st.slider("Revenue to Rewards (%)", 
+                                                 min_value=50, max_value=90, value=70, step=5,
+                                                 help="💡 Percentage of revenue allocated to rewards")
+        else:
+            launch_daily_revenue = 0
+            revenue_to_rewards_percent = 0
+            
+            # Bootstrap mode parameters
+            st.markdown("**🪙 Bootstrap Token Allocation**")
+            daily_token_mint_rate = st.slider("Daily Token Mint Rate (%)", 
+                                            min_value=0.01, max_value=1.0, value=0.1, step=0.01,
+                                            help="💡 Daily % of total supply minted for rewards")
+            
+            bootstrap_duration_days = st.number_input("Bootstrap Period (days)", 
+                                                    min_value=30, max_value=365, value=90, step=30,
+                                                    help="💡 Days to run on pure token rewards before revenue kicks in")
+            
+            st.info(f"""
+            🚀 **Bootstrap Mode Configuration:**
+            - **No external revenue required** for first {bootstrap_duration_days} days
+            - **Daily mint**: {daily_token_mint_rate}% of total supply for rewards
+            - **Sustainable**: Controlled inflation to bootstrap ecosystem
+            - **Transition**: Can switch to revenue-supported after bootstrap period
+            """)
     
     with col2:
         st.subheader("📈 Growth Projections")
@@ -1204,19 +1237,56 @@ def cold_start_scenario_interface():
             
             # Daily economics
             daily_creators = current_users * 0.05  # Assume 5% create content
-            daily_rewards_pool = current_revenue * 0.7  # 70% to rewards
             
-            creator_rewards = daily_rewards_pool * (creator_share / 100)
-            engagement_rewards = daily_rewards_pool * (engagement_share / 100)
-            commission_rewards = daily_rewards_pool * (commission_share / 100)
+            # Calculate rewards based on mode
+            if revenue_mode == "Bootstrap Mode (Token-Only)":
+                # Bootstrap mode: rewards from token minting
+                days_elapsed = month * 30
+                if days_elapsed <= bootstrap_duration_days:
+                    # Pure bootstrap mode
+                    daily_token_mint = circulating_supply * (daily_token_mint_rate / 100)
+                    daily_rewards_pool_tokens = daily_token_mint
+                    daily_rewards_pool_usd = 0  # No USD backing
+                else:
+                    # Transition period - could add revenue here
+                    daily_rewards_pool_tokens = circulating_supply * (daily_token_mint_rate / 100) * 0.5  # Reduced minting
+                    daily_rewards_pool_usd = current_revenue * (revenue_to_rewards_percent / 100) if current_revenue > 0 else 0
+            else:
+                # Revenue-supported mode
+                daily_rewards_pool_usd = current_revenue * (revenue_to_rewards_percent / 100)
+                daily_rewards_pool_tokens = daily_rewards_pool_usd / current_token_price if current_token_price > 0 else 0
             
-            # Token price (simplified market cap model)
-            market_cap = current_revenue * 365 * 8  # 8x annual revenue
-            current_token_price = market_cap / circulating_supply
+            # Distribute rewards
+            creator_rewards_tokens = daily_rewards_pool_tokens * (creator_share / 100)
+            engagement_rewards_tokens = daily_rewards_pool_tokens * (engagement_share / 100)
+            commission_rewards_tokens = daily_rewards_pool_tokens * (commission_share / 100)
+            
+            # Update circulating supply if minting tokens
+            if revenue_mode == "Bootstrap Mode (Token-Only)" and month * 30 <= bootstrap_duration_days:
+                circulating_supply += daily_token_mint * 30  # Monthly increase
+            
+            # Token price calculation
+            if revenue_mode == "Bootstrap Mode (Token-Only)":
+                # In bootstrap mode, price is driven by utility and scarcity
+                if month == 0:
+                    # Start with ICO price
+                    current_token_price = initial_token_price
+                else:
+                    # Price influenced by user growth and token supply inflation
+                    user_growth_factor = current_users / launch_daily_users
+                    supply_inflation_factor = circulating_supply / ico_tokens_sold
+                    # Price grows with users but is diluted by supply increase
+                    current_token_price = initial_token_price * (user_growth_factor / supply_inflation_factor) * 0.8
+                
+                market_cap = current_token_price * circulating_supply
+            else:
+                # Revenue-supported mode
+                market_cap = current_revenue * 365 * 8  # 8x annual revenue
+                current_token_price = market_cap / circulating_supply if circulating_supply > 0 else initial_token_price
             
             # Creator and consumer earnings in USD
-            avg_creator_earnings_usd = (creator_rewards * current_token_price) / max(1, daily_creators)
-            avg_consumer_earnings_usd = (engagement_rewards * current_token_price) / current_users
+            avg_creator_earnings_usd = (creator_rewards_tokens * current_token_price) / max(1, daily_creators)
+            avg_consumer_earnings_usd = (engagement_rewards_tokens * current_token_price) / current_users
             
             # Staking dynamics
             staking_apy = 0.15  # 15% APY
@@ -1234,13 +1304,16 @@ def cold_start_scenario_interface():
                 'circulating_supply': circulating_supply,
                 'staked_tokens': staked_tokens,
                 'staked_percentage': (staked_tokens / circulating_supply) * 100,
-                'creator_rewards_tokens': creator_rewards,
-                'engagement_rewards_tokens': engagement_rewards,
+                'creator_rewards_tokens': creator_rewards_tokens,
+                'engagement_rewards_tokens': engagement_rewards_tokens,
                 'avg_creator_earnings_usd': avg_creator_earnings_usd,
                 'avg_consumer_earnings_usd': avg_consumer_earnings_usd,
                 'monthly_staking_rewards': monthly_staking_rewards,
                 'churn_rate': monthly_churn_rate if month > 0 else 0,
-                'growth_rate': monthly_user_growth if month > 0 else 0
+                'growth_rate': monthly_user_growth if month > 0 else 0,
+                'revenue_mode': revenue_mode,
+                'daily_token_mint': daily_token_mint if revenue_mode == "Bootstrap Mode (Token-Only)" else 0,
+                'bootstrap_active': month * 30 <= bootstrap_duration_days if revenue_mode == "Bootstrap Mode (Token-Only)" else False
             }
             
             results.append(result)
@@ -1298,6 +1371,65 @@ def cold_start_scenario_interface():
         df_display['Consumer Earnings ($)'] = df_display['Consumer Earnings ($)'].apply(lambda x: f"${x:.2f}")
         
         st.dataframe(df_display, use_container_width=True)
+        
+        # Bootstrap Mode Explanation
+        if revenue_mode == "Bootstrap Mode (Token-Only)":
+            st.subheader("🚀 Bootstrap Mode Analysis")
+            
+            with st.expander("📊 Bootstrap Economics Explained", expanded=True):
+                bootstrap_months = bootstrap_duration_days // 30
+                total_tokens_minted = sum([r['daily_token_mint'] * 30 for r in results if r['bootstrap_active']])
+                
+                st.markdown(f"""
+                ### **🪙 Token-Only Bootstrap Strategy**
+                
+                **Why Bootstrap Mode?**
+                - **No Revenue Dependency**: Platform can launch and reward users without external revenue
+                - **Community Building**: Incentivizes early adopters with token rewards
+                - **Network Effects**: Users earn tokens that gain value as platform grows
+                - **Sustainable Launch**: Controlled token minting prevents unsustainable cash burn
+                
+                **📈 Bootstrap Metrics:**
+                - **Bootstrap Period**: {bootstrap_duration_days} days ({bootstrap_months} months)
+                - **Daily Mint Rate**: {daily_token_mint_rate}% of total supply
+                - **Total Tokens Minted**: {total_tokens_minted:,.0f} VCOIN during bootstrap
+                - **Supply Inflation**: {((final_result['circulating_supply'] / ico_tokens_sold) - 1) * 100:.1f}% over {simulation_months} months
+                
+                **🎯 Economic Logic:**
+                1. **Early Rewards**: Users get tokens for engagement when platform has no revenue
+                2. **Value Creation**: As user base grows, token utility and demand increase
+                3. **Price Discovery**: Token price reflects platform growth and user adoption
+                4. **Transition Ready**: Can switch to revenue-supported rewards once monetization kicks in
+                
+                **⚖️ Sustainability Factors:**
+                - **Controlled Inflation**: {daily_token_mint_rate}% daily mint rate prevents hyperinflation
+                - **User Growth**: {((final_result['daily_users'] / launch_daily_users) - 1) * 100:+.1f}% user growth supports token demand
+                - **Utility Value**: Tokens have real utility for platform features and governance
+                - **Future Revenue**: Bootstrap period allows time to develop revenue streams
+                
+                **🔄 Transition Strategy:**
+                After bootstrap period ({bootstrap_duration_days} days), the platform can:
+                - Reduce token minting rate to {daily_token_mint_rate/2}%
+                - Introduce revenue-backed rewards
+                - Maintain hybrid model (tokens + revenue)
+                - Implement token burns to control supply
+                """)
+                
+                # Show bootstrap vs revenue comparison
+                if simulation_months * 30 > bootstrap_duration_days:
+                    bootstrap_results = [r for r in results if r['bootstrap_active']]
+                    post_bootstrap_results = [r for r in results if not r['bootstrap_active'] and r['month'] > 0]
+                    
+                    if bootstrap_results and post_bootstrap_results:
+                        avg_bootstrap_creator_earnings = sum([r['avg_creator_earnings_usd'] for r in bootstrap_results]) / len(bootstrap_results)
+                        avg_post_creator_earnings = sum([r['avg_creator_earnings_usd'] for r in post_bootstrap_results]) / len(post_bootstrap_results)
+                        
+                        st.info(f"""
+                        **📊 Bootstrap vs Post-Bootstrap Comparison:**
+                        - **Bootstrap Period Creator Earnings**: ${avg_bootstrap_creator_earnings:.2f}/day average
+                        - **Post-Bootstrap Creator Earnings**: ${avg_post_creator_earnings:.2f}/day average
+                        - **Transition Impact**: {((avg_post_creator_earnings / avg_bootstrap_creator_earnings) - 1) * 100:+.1f}% change
+                        """)
         
         # Export functionality
         if st.button("📄 Export Cold Start Report", key="export_cold_start"):
@@ -2933,6 +3065,149 @@ def content_calculator_interface():
     st.header("🎬 Individual Content Reward Calculator")
     st.markdown("Calculate VCOIN rewards for specific content pieces")
     
+    # Add platform parameters section at the top
+    st.subheader("🏢 Platform Economics Parameters")
+    st.markdown("**Adjust the base economic parameters that affect all content rewards**")
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        daily_revenue = st.number_input(
+            "Daily Platform Revenue ($)", 
+            min_value=0, max_value=1_000_000, value=50_000, step=1000,
+            help="💡 Total daily revenue from ads, subscriptions, and other sources (set to $0 for bootstrap mode)"
+        )
+    
+    with col2:
+        revenue_share_percent = st.slider(
+            "Revenue Share for Rewards (%)", 
+            min_value=50, max_value=90, value=70, step=5,
+            help="💡 Percentage of daily revenue allocated to creator and user rewards"
+        )
+    
+    with col3:
+        daily_active_users = st.number_input(
+            "Daily Active Users", 
+            min_value=1000, max_value=10_000_000, value=100_000, step=5000,
+            help="💡 Number of users actively engaging with content daily"
+        )
+    
+    # VCOIN Price Input
+    st.markdown("**💰 VCOIN Token Price**")
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        # Enhanced token price input with dropdown + custom
+        common_prices = ["0.0000001", "0.00001", "0.0001", "0.001", "0.01", "0.10", "1.00"]
+        dropdown_options = common_prices + ["Custom..."]
+        selected_option = st.selectbox(
+            "Select or enter VCOIN price:",
+            dropdown_options,
+            index=5,  # Default to $0.10
+            key="vcoin_price_dropdown_content",
+            help="💡 Current VCOIN token price for USD calculations"
+        )
+    
+    with col2:
+        if selected_option == "Custom...":
+            custom_price = st.text_input("Custom Price:", value="0.10", key="custom_vcoin_price_content")
+            try:
+                vcoin_price = float(custom_price)
+                if vcoin_price <= 0:
+                    st.error("⚠️ Must be > 0")
+                    vcoin_price = 0.10
+            except ValueError:
+                st.error("⚠️ Invalid")
+                vcoin_price = 0.10
+        else:
+            vcoin_price = float(selected_option)
+            st.write("")
+    
+    st.success(f"💰 VCOIN Price: ${vcoin_price:.7f}")
+    
+    # Calculate and display base pool
+    if daily_revenue > 0:
+        base_pool_total = daily_revenue * (revenue_share_percent / 100)
+        base_pool_per_user = base_pool_total / daily_active_users
+        
+        st.info(f"""
+        **📊 Revenue-Backed Reward Pool:**
+        - Daily Revenue: ${daily_revenue:,}
+        - Revenue Share: {revenue_share_percent}% = ${base_pool_total:,.0f}
+        - Per User Pool: ${base_pool_total:,.0f} ÷ {daily_active_users:,} = ${base_pool_per_user:.4f} per user
+        """)
+    else:
+        # Bootstrap mode parameters
+        st.markdown("**🚀 Bootstrap Mode Configuration**")
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            daily_token_mint_rate = st.slider("Daily Token Mint Rate (%)", 
+                                            min_value=0.01, max_value=1.0, value=0.1, step=0.01,
+                                            help="💡 Daily % of total supply minted for rewards")
+        
+        with col2:
+            total_token_supply = st.number_input("Total Token Supply", 
+                                               min_value=1_000_000, max_value=50_000_000_000, value=1_000_000_000, step=1_000_000,
+                                               help="💡 Total VCOIN supply for mint calculations")
+        
+        daily_token_mint = total_token_supply * (daily_token_mint_rate / 100)
+        base_pool_per_user = daily_token_mint / daily_active_users
+        
+        st.success(f"""
+        **🪙 Bootstrap Mode - Token-Only Rewards:**
+        - Total Supply: {total_token_supply:,} VCOIN
+        - Daily Mint: {daily_token_mint_rate}% = {daily_token_mint:,.0f} VCOIN
+        - Per User Pool: {daily_token_mint:,.0f} ÷ {daily_active_users:,} = {base_pool_per_user:.2f} VCOIN per user
+        - USD Equivalent: {base_pool_per_user:.2f} VCOIN × ${vcoin_price:.7f} = ${base_pool_per_user * vcoin_price:.4f} per user
+        """)
+    
+    with st.expander("💡 Economic Model Explanation", expanded=False):
+        if daily_revenue > 0:
+            st.markdown(f"""
+            **🏢 Revenue-Supported Model:**
+            
+            **Daily Revenue Sources:**
+            - 📺 Advertising revenue (CPM from sponsors)
+            - 💳 Premium subscriptions 
+            - 🛒 In-app purchases and tips
+            - 🤝 Partnership and affiliate income
+            
+            **Revenue Share ({revenue_share_percent}%):**
+            - **{revenue_share_percent}% to Rewards**: Competitive with YouTube (55%), TikTok (50%), Twitch (50-70%)
+            - **{100-revenue_share_percent}% to Platform**: Operations, development, marketing, infrastructure, profit
+            - **Why {revenue_share_percent}%?** Attracts top creators while maintaining platform viability
+            
+            **User Distribution:**
+            - **{daily_active_users:,} Daily Users**: Ensures fair distribution across user base
+            - **Scalable Model**: Rewards grow with platform revenue and user base
+            """)
+        else:
+            st.markdown(f"""
+            **🚀 Bootstrap Mode - No Revenue Required:**
+            
+            **Token Minting Strategy:**
+            - **No external revenue** needed to reward users
+            - **Controlled inflation**: {daily_token_mint_rate}% daily mint rate
+            - **Community building**: Early adopters earn tokens that gain value
+            - **Sustainable launch**: No cash burn while building user base
+            
+            **Economic Logic:**
+            - **Early Rewards**: Users get tokens when platform has no revenue
+            - **Value Creation**: Token utility and demand increase with user growth
+            - **Network Effects**: More users → higher token value → better rewards
+            - **Transition Ready**: Can add revenue backing later
+            
+            **Sustainability:**
+            - **{daily_token_mint_rate}% daily** = {daily_token_mint_rate * 365:.1f}% annual inflation
+            - **User growth** typically exceeds inflation rate
+            - **Future revenue** can reduce minting dependency
+            """)
+    
+    st.divider()
+    
+    st.divider()
+    
     col1, col2 = st.columns([1, 1])
     
     with col1:
@@ -2965,13 +3240,16 @@ def content_calculator_interface():
         total_engagement = int(view_count * default_engagement_rate)
         
         shares = st.number_input("Shares", 0, view_count//2, max(1, int(total_engagement * 0.15)))
-        reports = st.number_input("Reports", 0, view_count//10, max(0, int(total_engagement * 0.03)))
         likes = st.number_input("Likes", 0, view_count, max(1, int(total_engagement * 0.65)))
         dislikes = st.number_input("Dislikes", 0, view_count//5, max(0, int(total_engagement * 0.07)))
         comments = st.number_input("Comments", 0, view_count//3, max(1, int(total_engagement * 0.20)))
         
+        # Total viewers (replaces reports)
+        total_viewers = st.number_input("Total Viewers", 1, view_count * 3, view_count, 
+                                      help="💡 Total unique viewers who watched the content")
+        
         st.subheader("⭐ Quality Scores")
-        creator_5a = st.slider("Creator 5A Score", 100, 500, 300, help="Authority, Accuracy, Authenticity, Audience, Amplification")
+        creator_5a = st.slider("Creator 5A Score (%)", 1, 100, 75, help="Authority, Accuracy, Authenticity, Audience, Amplification (1-100%)")
         accuracy = st.slider("Content Accuracy %", 0, 100, 80, help="Community-verified accuracy rating")
         engagement_quality = st.slider("Engagement Quality", 0, 100, 70, help="Quality of user interactions")
     
@@ -2980,48 +3258,97 @@ def content_calculator_interface():
         
         if st.button("🧮 Calculate Rewards", type="primary"):
             
+            # Convert 5A score from 1-100% to engine's expected 100-500 range
+            adjusted_5a_score = (creator_5a / 100) * 400 + 100
+            
+            # Calculate engagement multiplier based on engagement metrics
+            # Higher engagement = higher total reward
+            engagement_rate = (shares + likes + comments) / max(1, view_count)
+            engagement_multiplier = 1.0 + (engagement_rate * 2.0)  # Up to 3x multiplier for high engagement
+            
+            # Dislike penalty (reduces multiplier)
+            dislike_rate = dislikes / max(1, view_count)
+            dislike_penalty = max(0.5, 1.0 - (dislike_rate * 1.5))  # Down to 0.5x for high dislikes
+            
+            # Final engagement multiplier
+            final_engagement_multiplier = engagement_multiplier * dislike_penalty
+            
             # Create content metrics object
             content_metrics = ContentMetrics(
                 content_type=content_type,
                 view_count=view_count,
                 shares=shares,
-                reports=reports,
+                reports=0,  # No longer used
                 likes=likes,
                 dislikes=dislikes,
                 comments=comments,
-                creator_5a_score=creator_5a,
+                creator_5a_score=adjusted_5a_score,  # Use adjusted score
                 accuracy_rating=accuracy,
                 engagement_quality=engagement_quality,
                 duration_minutes=duration
             )
             
-            # Initialize engine with default parameters
-            engine_params = {
-                'daily_revenue': 50000,
-                'daily_users': 100000,
-                'initial_price': 0.10
-            }
+            # Initialize engine with user-adjusted parameters
+            if daily_revenue > 0:
+                engine_params = {
+                    'daily_revenue': daily_revenue,
+                    'daily_users': daily_active_users,
+                    'initial_price': vcoin_price,
+                    'revenue_share_percent': revenue_share_percent
+                }
+            else:
+                # Bootstrap mode - use token minting for rewards
+                engine_params = {
+                    'daily_revenue': daily_token_mint * vcoin_price,  # Convert tokens to USD equivalent at user price
+                    'daily_users': daily_active_users,
+                    'initial_price': vcoin_price,
+                    'revenue_share_percent': 100,  # 100% of "revenue" goes to rewards in bootstrap
+                    'bootstrap_mode': True,
+                    'daily_token_mint': daily_token_mint
+                }
             engine = VCoinEconomicEngine(engine_params)
             
             # Calculate rewards
-            reward_result = engine.calculate_content_reward(content_metrics)
+            base_reward_result = engine.calculate_content_reward(content_metrics)
             
-            # Display total reward
+            # Apply engagement multiplier to total reward
+            total_vcoin_base = base_reward_result['total_reward']
+            total_vcoin = total_vcoin_base * final_engagement_multiplier
+            total_usd = total_vcoin * vcoin_price  # At user-specified VCOIN price
+            
+            # Display total reward with engagement impact
             st.success("✅ Reward Calculation Complete")
             
-            total_vcoin = reward_result['total_reward']
-            total_usd = total_vcoin * 0.10  # At $0.10 per VCOIN
+            # Show engagement impact
+            st.info(f"""
+            **📊 Engagement Impact Analysis:**
+            - Base Reward: {total_vcoin_base:,.0f} VCOIN
+            - Engagement Rate: {engagement_rate:.1%} (shares + likes + comments / views)
+            - Engagement Multiplier: {engagement_multiplier:.2f}x
+            - Dislike Penalty: {dislike_penalty:.2f}x
+            - **Final Multiplier: {final_engagement_multiplier:.2f}x**
+            - **Total Reward: {total_vcoin:,.0f} VCOIN** (${total_usd:,.2f})
+            """)
             
             st.metric("💎 Total Content Reward", f"{total_vcoin:,.0f} VCOIN", f"${total_usd:,.2f}")
             
             # Distribution breakdown
             st.subheader("💸 Reward Distribution")
             
+            # Recalculate distribution with new total and viewer rewards
+            creator_reward = total_vcoin * 0.40  # 40% to creator
+            share_reward_pool = total_vcoin * 0.20  # 20% to sharers
+            viewer_reward_pool = total_vcoin * 0.05  # 5% to viewers (replaces reports)
+            like_reward_pool = total_vcoin * 0.10  # 10% to likers
+            dislike_reward_pool = total_vcoin * 0.05  # 5% to dislikers
+            comment_reward_pool = total_vcoin * 0.10  # 10% to commenters
+            platform_commission = total_vcoin * 0.10  # 10% to platform
+            
             distribution_data = {
                 'Recipient': [
                     '👤 Creator',
                     '🔄 Sharers', 
-                    '📢 Reporters',
+                    '👀 Viewers',  # Replaces reporters
                     '👍 Likers',
                     '👎 Dislikers', 
                     '💬 Commenters',
@@ -3029,34 +3356,27 @@ def content_calculator_interface():
                     '🎨 NFT Royalty Pool'
                 ],
                 'VCOIN Amount': [
-                    f"{reward_result['creator_reward']:,.0f}",
-                    f"{reward_result['share_reward_pool']:,.0f}",
-                    f"{reward_result['report_reward_pool']:,.0f}",
-                    f"{reward_result['like_reward_pool']:,.0f}",
-                    f"{reward_result['dislike_reward_pool']:,.0f}",
-                    f"{reward_result['comment_reward_pool']:,.0f}",
-                    f"{reward_result['platform_commission']:,.0f}",
-                    f"{reward_result['nft_royalty_pool']:,.0f}"
+                    f"{creator_reward:,.0f}",
+                    f"{share_reward_pool:,.0f}",
+                    f"{viewer_reward_pool:,.0f}",
+                    f"{like_reward_pool:,.0f}",
+                    f"{dislike_reward_pool:,.0f}",
+                    f"{comment_reward_pool:,.0f}",
+                    f"{platform_commission:,.0f}",
+                    f"{total_vcoin * 0.0:,.0f}"  # No royalty pool for now
                 ],
                 'USD Value': [
-                    f"${reward_result['creator_reward'] * 0.10:,.2f}",
-                    f"${reward_result['share_reward_pool'] * 0.10:,.2f}",
-                    f"${reward_result['report_reward_pool'] * 0.10:,.2f}",
-                    f"${reward_result['like_reward_pool'] * 0.10:,.2f}",
-                    f"${reward_result['dislike_reward_pool'] * 0.10:,.2f}",
-                    f"${reward_result['comment_reward_pool'] * 0.10:,.2f}",
-                    f"${reward_result['platform_commission'] * 0.10:,.2f}",
-                    f"${reward_result['nft_royalty_pool'] * 0.10:,.2f}"
+                    f"${creator_reward * vcoin_price:,.2f}",
+                    f"${share_reward_pool * vcoin_price:,.2f}",
+                    f"${viewer_reward_pool * vcoin_price:,.2f}",
+                    f"${like_reward_pool * vcoin_price:,.2f}",
+                    f"${dislike_reward_pool * vcoin_price:,.2f}",
+                    f"${comment_reward_pool * vcoin_price:,.2f}",
+                    f"${platform_commission * vcoin_price:,.2f}",
+                    f"${0:,.2f}"
                 ],
                 'Percentage': [
-                    f"{(reward_result['creator_reward']/total_vcoin)*100:.1f}%",
-                    f"{(reward_result['share_reward_pool']/total_vcoin)*100:.1f}%",
-                    f"{(reward_result['report_reward_pool']/total_vcoin)*100:.1f}%",
-                    f"{(reward_result['like_reward_pool']/total_vcoin)*100:.1f}%",
-                    f"{(reward_result['dislike_reward_pool']/total_vcoin)*100:.1f}%",
-                    f"{(reward_result['comment_reward_pool']/total_vcoin)*100:.1f}%",
-                    f"{(reward_result['platform_commission']/total_vcoin)*100:.1f}%",
-                    f"{(reward_result['nft_royalty_pool']/total_vcoin)*100:.1f}%"
+                    "40.0%", "20.0%", "5.0%", "10.0%", "5.0%", "10.0%", "10.0%", "0.0%"
                 ]
             }
             
@@ -3064,25 +3384,32 @@ def content_calculator_interface():
             st.table(dist_df)
             
             # Individual user rewards
-            if shares + reports + likes + dislikes + comments > 0:
+            if shares + total_viewers + likes + dislikes + comments > 0:
                 st.subheader("👤 Individual User Rewards")
                 
+                # Calculate per-action rewards
+                share_per_action = share_reward_pool / max(1, shares)
+                viewer_per_action = viewer_reward_pool / max(1, total_viewers)
+                like_per_action = like_reward_pool / max(1, likes)
+                dislike_per_action = dislike_reward_pool / max(1, dislikes)
+                comment_per_action = comment_reward_pool / max(1, comments)
+                
                 individual_data = {
-                    'Action': ['🔄 Share', '📢 Report', '👍 Like', '👎 Dislike', '💬 Comment'],
-                    'Count': [shares, reports, likes, dislikes, comments],
+                    'Action': ['🔄 Share', '👀 View', '👍 Like', '👎 Dislike', '💬 Comment'],
+                    'Count': [shares, total_viewers, likes, dislikes, comments],
                     'Reward per Action': [
-                        f"{reward_result['share_per_action']:,.3f} VCOIN" if shares > 0 else "0 VCOIN",
-                        f"{reward_result['report_per_action']:,.3f} VCOIN" if reports > 0 else "0 VCOIN",
-                        f"{reward_result['like_per_action']:,.3f} VCOIN" if likes > 0 else "0 VCOIN",
-                        f"{reward_result['dislike_per_action']:,.3f} VCOIN" if dislikes > 0 else "0 VCOIN",
-                        f"{reward_result['comment_per_action']:,.3f} VCOIN" if comments > 0 else "0 VCOIN"
+                        f"{share_per_action:,.3f} VCOIN" if shares > 0 else "0 VCOIN",
+                        f"{viewer_per_action:,.3f} VCOIN" if total_viewers > 0 else "0 VCOIN",
+                        f"{like_per_action:,.3f} VCOIN" if likes > 0 else "0 VCOIN",
+                        f"{dislike_per_action:,.3f} VCOIN" if dislikes > 0 else "0 VCOIN",
+                        f"{comment_per_action:,.3f} VCOIN" if comments > 0 else "0 VCOIN"
                     ],
                     'USD per Action': [
-                        f"${reward_result['share_per_action'] * 0.10:,.3f}" if shares > 0 else "$0.000",
-                        f"${reward_result['report_per_action'] * 0.10:,.3f}" if reports > 0 else "$0.000",
-                        f"${reward_result['like_per_action'] * 0.10:,.3f}" if likes > 0 else "$0.000",
-                        f"${reward_result['dislike_per_action'] * 0.10:,.3f}" if dislikes > 0 else "$0.000",
-                        f"${reward_result['comment_per_action'] * 0.10:,.3f}" if comments > 0 else "$0.000"
+                        f"${share_per_action * vcoin_price:,.3f}" if shares > 0 else "$0.000",
+                        f"${viewer_per_action * vcoin_price:,.3f}" if total_viewers > 0 else "$0.000",
+                        f"${like_per_action * vcoin_price:,.3f}" if likes > 0 else "$0.000",
+                        f"${dislike_per_action * vcoin_price:,.3f}" if dislikes > 0 else "$0.000",
+                        f"${comment_per_action * vcoin_price:,.3f}" if comments > 0 else "$0.000"
                     ]
                 }
                 
@@ -3093,7 +3420,8 @@ def content_calculator_interface():
                 st.subheader("📈 Quality Impact Analysis")
                 
                 quality_factors = {
-                    'Base Content Multiplier': engine.content_multipliers[content_type],
+                    'Base Content Multiplier': f"{engine.content_multipliers[content_type]}x",
+                    'Creator 5A Score': f"{creator_5a}% (converted to {adjusted_5a_score:.0f} for calculation)",
                     'Creator 5A Multiplier': f"{engine._calculate_quality_multiplier(content_metrics):.2f}x",
                     'Accuracy Bonus': f"{((accuracy/100) * 0.20 + 1):.2f}x",
                     'Final Quality Multiplier': f"{engine._calculate_quality_multiplier(content_metrics):.2f}x"
@@ -3101,6 +3429,209 @@ def content_calculator_interface():
                 
                 for factor, value in quality_factors.items():
                     st.write(f"**{factor}:** {value}")
+            
+            # Formula explanation section
+            st.subheader("🧮 Calculation Formula Breakdown")
+            
+            with st.expander("📐 Complete Formula Explanation", expanded=False):
+                st.markdown("""
+                ### **VCOIN Content Reward Calculation Formula**
+                
+                #### **Step 1: Base Reward Pool**
+                """)
+                
+                if daily_revenue > 0:
+                    st.markdown(f"""
+                    ```
+                    Revenue-Backed Model:
+                    Base Pool = (Daily Revenue × Revenue Share %) ÷ Daily Active Users
+                    Base Pool = (${daily_revenue:,} × {revenue_share_percent}%) ÷ {daily_active_users:,} = ${base_pool_per_user:.4f} per user
+                    ```""")
+                else:
+                    st.markdown(f"""
+                    ```
+                    Bootstrap Mode (Token-Only):
+                    Base Pool = (Total Supply × Daily Mint Rate %) ÷ Daily Active Users
+                    Base Pool = ({total_token_supply:,} × {daily_token_mint_rate}%) ÷ {daily_active_users:,} = {base_pool_per_user:.2f} VCOIN per user
+                    ```""")
+                
+                st.markdown("""
+                
+                **📊 Why This Formula:**""")
+                
+                if daily_revenue > 0:
+                    st.markdown(f"""
+                    **🏢 Revenue-Backed Model:**
+                    - **Daily Revenue (${daily_revenue:,})**: Platform's total daily income from:
+                      - 📺 Advertising revenue (CPM from sponsors)
+                      - 💳 Premium subscriptions 
+                      - 🛒 In-app purchases and tips
+                      - 🤝 Partnership and affiliate income
+                    
+                    - **Revenue Share ({revenue_share_percent}%)**: Portion allocated to rewards because:
+                      - 🎯 **Incentivizes quality content creation**
+                      - 🔄 **Encourages user engagement and retention**
+                      - ⚖️ **Balances platform sustainability vs user rewards**
+                      - 📈 **Creates positive feedback loop for growth**
+                      - Remaining {100-revenue_share_percent}% covers: operations, development, marketing, profit
+                    
+                    **💡 Economic Impact:**
+                    - Higher revenue → Larger reward pools → Better creator incentives
+                    - More users → Distributed rewards → Sustainable growth model
+                    - Optimal revenue share → Platform viability + user satisfaction""")
+                else:
+                    st.markdown(f"""
+                    **🚀 Bootstrap Mode (No Revenue Required):**
+                    - **Total Supply ({total_token_supply:,} VCOIN)**: Available tokens for minting rewards
+                    - **Daily Mint Rate ({daily_token_mint_rate}%)**: Controlled inflation for sustainability:
+                      - 🎯 **Rewards early adopters** without cash requirements
+                      - 🔄 **Builds community** before monetization
+                      - ⚖️ **Prevents hyperinflation** with reasonable rates
+                      - 📈 **Creates token utility** and demand through usage
+                    
+                    **💡 Bootstrap Benefits:**
+                    - No revenue needed → Immediate launch capability
+                    - Token rewards → Community building and retention  
+                    - User growth → Token value appreciation
+                    - Transition ready → Can add revenue backing later""")
+                
+                st.markdown(f"""
+                
+                - **Daily Active Users ({daily_active_users:,})**: Reward pool distribution base because:
+                  - 👥 **Ensures fair distribution across user base**
+                  - 📊 **Scales rewards with platform growth**
+                  - 💰 **Maintains consistent per-user economics**
+                  - 🎯 **Prevents reward dilution as platform grows**
+                
+                #### **Step 2: Content Type Multiplier**
+                ```
+                Content Multipliers:
+                • 🎙️ Podcast: 2.5x
+                • 📹 Long Video: 2.0x  
+                • 📱 Short Video: 1.0x
+                • 📝 Text Post: 0.8x
+                
+                Adjusted Pool = Base Pool × Content Multiplier
+                ```
+                
+                #### **Step 3: 5A Quality Multiplier**
+                ```
+                5A Multiplier = (5A Score ÷ 100) × 2.0 + 0.5
+                
+                Example: 75% 5A Score
+                5A Multiplier = (75 ÷ 100) × 2.0 + 0.5 = 2.0x
+                ```
+                
+                #### **Step 4: Accuracy Bonus**
+                ```
+                Accuracy Bonus = (Accuracy % ÷ 100) × 0.20 + 1.0
+                
+                Example: 80% Accuracy
+                Accuracy Bonus = (80 ÷ 100) × 0.20 + 1.0 = 1.16x
+                ```
+                
+                #### **Step 5: View Count Impact**
+                ```
+                View Multiplier = log10(View Count) ÷ 3.0
+                
+                Example: 1,000 views
+                View Multiplier = log10(1000) ÷ 3.0 = 1.0x
+                ```
+                
+                #### **Step 6: Total Content Reward**
+                ```
+                Total Reward = Base Pool × Content Multiplier × 5A Multiplier × 
+                              Accuracy Bonus × View Multiplier × View Count
+                ```
+                
+                #### **Step 7: Engagement Multiplier (NEW!)**
+                ```
+                Engagement Rate = (Shares + Likes + Comments) ÷ Views
+                Engagement Multiplier = 1.0 + (Engagement Rate × 2.0)  [Max 3.0x]
+                Dislike Penalty = max(0.5, 1.0 - (Dislikes ÷ Views × 1.5))  [Min 0.5x]
+                Final Multiplier = Engagement Multiplier × Dislike Penalty
+                
+                Enhanced Total = Base Reward × Final Multiplier
+                ```
+                
+                #### **Step 8: Distribution Breakdown**
+                ```
+                • Creator (40%): Enhanced Total × 0.40
+                • Engagement Pool (50%):
+                  - Shares (20%): Enhanced Total × 0.20 ÷ Share Count
+                  - Viewers (5%): Enhanced Total × 0.05 ÷ Total Viewers  [NEW!]
+                  - Likes (10%): Enhanced Total × 0.10 ÷ Like Count
+                  - Dislikes (5%): Enhanced Total × 0.05 ÷ Dislike Count
+                  - Comments (10%): Enhanced Total × 0.10 ÷ Comment Count
+                • ViWo Commission (10%): Enhanced Total × 0.10
+                ```
+                
+                #### **Current Calculation:**
+                """)
+                
+                # Show actual calculation with current values
+                base_pool = (engine_params['daily_revenue'] * 0.7) / engine_params['daily_users']
+                content_mult = engine.content_multipliers[content_type]
+                
+                # Convert 5A score from 1-100 to the engine's expected format
+                adjusted_5a_score = (creator_5a / 100) * 400 + 100  # Convert 1-100% to 100-500 range
+                
+                # Create adjusted content metrics for calculation
+                adjusted_content_metrics = ContentMetrics(
+                    content_type=content_type,
+                    view_count=view_count,
+                    shares=shares,
+                    reports=0,  # No longer used
+                    likes=likes,
+                    dislikes=dislikes,
+                    comments=comments,
+                    creator_5a_score=adjusted_5a_score,  # Use adjusted score
+                    accuracy_rating=accuracy,
+                    engagement_quality=engagement_quality,
+                    duration_minutes=duration
+                )
+                
+                quality_mult = engine._calculate_quality_multiplier(adjusted_content_metrics)
+                accuracy_bonus = (accuracy/100) * 0.20 + 1.0
+                
+                import math
+                view_mult = math.log10(max(1, view_count)) / 3.0
+                
+                if daily_revenue > 0:
+                    st.markdown(f"""
+                    ```
+                    Base Pool = ${engine_params['daily_revenue']:,.0f} × {revenue_share_percent/100:.2f} ÷ {engine_params['daily_users']:,.0f} = {base_pool:.4f} VCOIN
+                    Content Multiplier = {content_mult}x ({content_type})
+                    5A Multiplier = ({creator_5a} ÷ 100) × 2.0 + 0.5 = {quality_mult:.2f}x
+                    Accuracy Bonus = ({accuracy} ÷ 100) × 0.20 + 1.0 = {accuracy_bonus:.2f}x
+                    View Multiplier = log10({view_count:,}) ÷ 3.0 = {view_mult:.2f}x""")
+                else:
+                    st.markdown(f"""
+                    ```
+                    Base Pool = {total_token_supply:,} × {daily_token_mint_rate/100:.3f} ÷ {engine_params['daily_users']:,.0f} = {base_pool:.2f} VCOIN
+                    Content Multiplier = {content_mult}x ({content_type})
+                    5A Multiplier = ({creator_5a} ÷ 100) × 2.0 + 0.5 = {quality_mult:.2f}x
+                    Accuracy Bonus = ({accuracy} ÷ 100) × 0.20 + 1.0 = {accuracy_bonus:.2f}x
+                    View Multiplier = log10({view_count:,}) ÷ 3.0 = {view_mult:.2f}x""")
+                
+                st.markdown(f"""
+                
+                Base Reward = {base_pool:.4f} × {content_mult} × {quality_mult:.2f} × {accuracy_bonus:.2f} × {view_mult:.2f} × {view_count:,}
+                Base Reward = {total_vcoin_base:,.0f} VCOIN
+                
+                Engagement Rate = ({shares} + {likes} + {comments}) ÷ {view_count} = {engagement_rate:.1%}
+                Engagement Multiplier = 1.0 + ({engagement_rate:.3f} × 2.0) = {engagement_multiplier:.2f}x
+                Dislike Penalty = max(0.5, 1.0 - ({dislikes} ÷ {view_count} × 1.5)) = {dislike_penalty:.2f}x
+                Final Multiplier = {engagement_multiplier:.2f} × {dislike_penalty:.2f} = {final_engagement_multiplier:.2f}x
+                
+                **Enhanced Total = {total_vcoin_base:,.0f} × {final_engagement_multiplier:.2f} = {total_vcoin:,.0f} VCOIN (${total_usd:,.2f})**
+                ```
+                """)
+                
+                if daily_revenue > 0:
+                    st.info("💡 **Revenue-Backed Model**: Rewards are funded by platform revenue, with engagement-based multipliers for viral content.")
+                else:
+                    st.info(f"💡 **Bootstrap Mode**: Pure VCOIN tokens from {daily_token_mint_rate}% daily minting, enhanced by engagement metrics. High engagement = higher rewards!")
 
 def ab_comparison_interface():
     """A/B testing interface for comparing parameter sets"""
