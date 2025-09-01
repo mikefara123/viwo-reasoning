@@ -1,0 +1,3139 @@
+#!/usr/bin/env python3
+"""
+VCOIN Interactive Economic Playground
+Streamlit-based interface for testing tokenomics parameters
+"""
+
+import math
+import random
+import json
+from datetime import datetime
+from typing import Dict, List, Any
+from vcoin_economic_engine import VCoinEconomicEngine, VCoinColdStartValuation, ContentMetrics
+
+try:
+    import streamlit as st
+    import pandas as pd
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+except ImportError:
+    print("Error: Required packages not installed.")
+    print("Please run: pip install -r requirements.txt")
+    exit(1)
+
+# Page configuration
+st.set_page_config(
+    page_title="VCOIN Economic Playground",
+    page_icon="🪙",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 3rem;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+    }
+    .success-box {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+def main():
+    """Main playground interface"""
+    
+    # Header
+    st.markdown('<h1 class="main-header">🪙 VCOIN Economic Playground</h1>', unsafe_allow_html=True)
+    st.markdown("**Test tokenomics parameters and see real-time economic impact**")
+    
+    # Create tabs for different tools
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+        "🎛️ Parameter Testing", 
+        "💰 Price Discovery", 
+        "🎬 Content Calculator", 
+        "⚔️ A/B Comparison",
+        "🏦 Token Initial Valuation",
+        "🔄 Reverse Simulation",
+        "🚀 Cold Start Scenario",
+        "🏛️ Governance & DAO",
+        "📅 Vesting & Unlocks",
+        "🛡️ Security & Stress Test"
+    ])
+    
+    with tab1:
+        parameter_testing_interface()
+    
+    with tab2:
+        price_discovery_interface()
+    
+    with tab3:
+        content_calculator_interface()
+    
+    with tab4:
+        ab_comparison_interface()
+    
+    with tab5:
+        token_initial_valuation_interface()
+    
+    with tab6:
+        reverse_simulation_interface()
+    
+    with tab7:
+        cold_start_scenario_interface()
+    
+    with tab8:
+        governance_dao_interface()
+    
+    with tab9:
+        vesting_unlocks_interface()
+    
+    with tab10:
+        security_stress_test_interface()
+
+def token_initial_valuation_interface():
+    """Token Initial Valuation for ICO/ICP"""
+    st.header("🏦 Token Initial Valuation Calculator")
+    st.markdown("**Calculate initial token price for investors and ICP sale based on R&D investment, liquidity backing, and market projections**")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("💰 Investment Parameters")
+        
+        # Core investment parameters
+        rd_investment = st.number_input("R&D Investment ($)", value=500000, min_value=0, step=10000,
+                                       help="Total spent on research, development, and tokenomics design")
+        
+        liquidity_backing = st.number_input("Initial Liquidity Backing ($)", value=100000, min_value=0, step=5000,
+                                          help="Cash allocated to support initial market liquidity")
+        
+        operational_costs = st.number_input("Annual Operational Costs ($)", value=200000, min_value=0, step=10000,
+                                          help="Yearly costs for development, marketing, and operations")
+        
+        st.subheader("🪙 Token Supply Parameters")
+        
+        total_token_supply = st.number_input("Total Token Supply", value=10000000000, min_value=1000000, step=1000000,
+                                           help="Maximum tokens that will ever exist (10B VCOIN)")
+        
+        ico_token_amount = st.number_input("Tokens for ICO Sale", value=100000000, min_value=1000000, step=1000000,
+                                         help="Number of tokens to sell in initial offering")
+        
+        circulating_at_launch = st.number_input("Circulating Supply at Launch", value=1000000000, min_value=ico_token_amount, step=1000000,
+                                               help="Total tokens available at launch (including ICO)")
+        
+        st.subheader("📈 Market Projections")
+        
+        year1_revenue = st.number_input("Year 1 Projected Revenue ($)", value=500000, min_value=0, step=25000,
+                                       help="Expected platform revenue in first year")
+        
+        revenue_growth_rate = st.slider("Annual Revenue Growth Rate (%)", min_value=0, max_value=200, value=50, step=5,
+                                       help="Expected yearly revenue growth percentage")
+        
+        user_growth_year1 = st.number_input("Year 1 Expected Users", value=100000, min_value=1000, step=10000,
+                                          help="Expected user base by end of year 1")
+        
+        user_growth_rate = st.slider("Annual User Growth Rate (%)", min_value=0, max_value=300, value=100, step=10,
+                                    help="Expected yearly user growth percentage")
+    
+    with col2:
+        st.subheader("⚙️ Valuation Settings")
+        
+        discount_rate = st.slider("Discount Rate (%)", min_value=10, max_value=80, value=40, step=5,
+                                help="Risk-adjusted discount rate for DCF analysis (crypto typical: 30-60%)")
+        
+        terminal_growth_rate = st.slider("Terminal Growth Rate (%)", min_value=0, max_value=10, value=3, step=1,
+                                       help="Long-term sustainable growth rate")
+        
+        forecast_years = st.selectbox("DCF Forecast Period (years)", [3, 5, 7, 10], index=1,
+                                    help="Number of years to project cash flows")
+        
+        token_velocity = st.slider("Expected Token Velocity", min_value=1.0, max_value=20.0, value=8.0, step=0.5,
+                                 help="How many times tokens change hands per year (higher = lower price)")
+        
+        platform_take_rate = st.slider("Platform Take Rate (%)", min_value=5, max_value=25, value=10, step=1,
+                                      help="Percentage of transaction volume retained as revenue")
+        
+        st.subheader("🎯 Market Context")
+        
+        comparable_market_cap = st.number_input("Comparable Project Market Cap ($M)", value=50, min_value=1, step=5,
+                                              help="Market cap of similar projects for benchmarking")
+        
+        market_cap_multiple = st.slider("Market Cap Multiple", min_value=0.1, max_value=3.0, value=0.5, step=0.1,
+                                       help="Multiple of comparable market cap to target")
+        
+        icp_price = st.number_input("Current ICP Price ($)", value=4.82, min_value=0.1, step=0.1,
+                                  help="Current Internet Computer Protocol token price")
+    
+    # Execute button
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        execute_valuation = st.button("🚀 Execute Valuation", type="primary", use_container_width=True, key="valuation_execute")
+    
+    with col2:
+        export_results = st.button("📄 Export Results", use_container_width=True, key="valuation_export")
+    
+    with col3:
+        reset_defaults = st.button("🔄 Reset to Defaults", use_container_width=True, key="valuation_reset")
+    
+    # Reset functionality
+    if reset_defaults:
+        st.rerun()
+    
+    # Only calculate and show results when Execute is clicked
+    if execute_valuation or 'valuation_executed' not in st.session_state:
+        st.session_state.valuation_executed = True
+        
+        # Calculate valuations
+        st.markdown("---")
+        st.header("💎 Valuation Results")
+        
+        # Method 1: Asset-Based Valuation (R&D + Liquidity)
+        asset_value = rd_investment + liquidity_backing
+        asset_based_price = asset_value / ico_token_amount
+    
+        # Method 2: DCF Analysis
+        dcf_value = calculate_dcf_valuation(year1_revenue, revenue_growth_rate, discount_rate, 
+                                           terminal_growth_rate, forecast_years, platform_take_rate)
+        dcf_token_price = dcf_value / circulating_at_launch
+        
+        # Method 3: Market Cap Multiple
+        target_market_cap = comparable_market_cap * 1000000 * market_cap_multiple
+        market_cap_price = target_market_cap / circulating_at_launch
+        
+        # Method 4: Equation of Exchange (MV = PQ)
+        transaction_volume = calculate_transaction_volume(user_growth_year1, user_growth_rate, year1_revenue, revenue_growth_rate)
+        exchange_price = transaction_volume / (circulating_at_launch * token_velocity)
+        
+        # Method 5: Revenue Multiple
+        revenue_multiple = 10  # Typical SaaS multiple
+        revenue_based_value = year1_revenue * revenue_multiple
+        revenue_based_price = revenue_based_value / circulating_at_launch
+    
+        # Display results
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            st.metric("💰 Asset-Based Price", f"${asset_based_price:.4f}", 
+                     help="Based on R&D investment + liquidity backing")
+            st.metric("📊 DCF Price", f"${dcf_token_price:.4f}",
+                     help="Discounted Cash Flow valuation")
+        
+        with col2:
+            st.metric("🏢 Market Cap Multiple", f"${market_cap_price:.4f}",
+                     help="Based on comparable project multiples")
+            st.metric("🔄 Exchange Equation", f"${exchange_price:.4f}",
+                     help="MV = PQ equation of exchange model")
+        
+        with col3:
+            st.metric("📈 Revenue Multiple", f"${revenue_based_price:.4f}",
+                     help="Based on revenue multiples")
+            
+            # Weighted average recommendation
+            prices = [asset_based_price, dcf_token_price, market_cap_price, exchange_price, revenue_based_price]
+            weights = [0.25, 0.30, 0.20, 0.15, 0.10]  # DCF weighted highest
+            weighted_price = sum(p * w for p, w in zip(prices, weights))
+            
+            st.metric("🎯 Recommended Price", f"${weighted_price:.4f}",
+                     help="Weighted average of all methods")
+    
+        # ICO calculations
+        st.subheader("🚀 ICO Analysis")
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            ico_raise_usd = ico_token_amount * weighted_price
+            st.metric("💵 Total ICO Raise (USD)", f"${ico_raise_usd:,.0f}")
+            
+            ico_raise_icp = ico_raise_usd / icp_price
+            st.metric("🪙 Total ICO Raise (ICP)", f"{ico_raise_icp:,.0f} ICP")
+        
+        with col2:
+            market_cap_at_launch = circulating_at_launch * weighted_price
+            st.metric("📊 Market Cap at Launch", f"${market_cap_at_launch:,.0f}")
+            
+            fdv = total_token_supply * weighted_price
+            st.metric("💎 Fully Diluted Value", f"${fdv:,.0f}")
+        
+        with col3:
+            ico_percentage = (ico_token_amount / total_token_supply) * 100
+            st.metric("📊 ICO % of Total Supply", f"{ico_percentage:.1f}%")
+            
+            circulating_percentage = (circulating_at_launch / total_token_supply) * 100
+            st.metric("🔄 Circulating % at Launch", f"{circulating_percentage:.1f}%")
+        
+        # Store results in session state for export
+        st.session_state.valuation_results = {
+            'input_parameters': {
+                'rd_investment': rd_investment,
+                'liquidity_backing': liquidity_backing,
+                'operational_costs': operational_costs,
+                'total_token_supply': total_token_supply,
+                'ico_token_amount': ico_token_amount,
+                'circulating_at_launch': circulating_at_launch,
+                'year1_revenue': year1_revenue,
+                'revenue_growth_rate': revenue_growth_rate,
+                'user_growth_year1': user_growth_year1,
+                'user_growth_rate': user_growth_rate,
+                'discount_rate': discount_rate,
+                'terminal_growth_rate': terminal_growth_rate,
+                'forecast_years': forecast_years,
+                'token_velocity': token_velocity,
+                'platform_take_rate': platform_take_rate,
+                'comparable_market_cap': comparable_market_cap,
+                'market_cap_multiple': market_cap_multiple,
+                'icp_price': icp_price
+            },
+            'valuation_results': {
+                'asset_based_price': asset_based_price,
+                'dcf_token_price': dcf_token_price,
+                'market_cap_price': market_cap_price,
+                'exchange_price': exchange_price,
+                'revenue_based_price': revenue_based_price,
+                'weighted_price': weighted_price,
+                'ico_raise_usd': ico_raise_usd,
+                'ico_raise_icp': ico_raise_icp,
+                'market_cap_at_launch': market_cap_at_launch,
+                'fdv': fdv,
+                'ico_percentage': ico_percentage,
+                'circulating_percentage': circulating_percentage
+            }
+        }
+    
+        # Formula explanations
+        st.markdown("---")
+        st.subheader("📝 Valuation Formulas & Methodology")
+        
+        with st.expander("🔢 See Detailed Formulas"):
+            st.markdown("""
+        ### 1. Asset-Based Valuation
+        ```
+        Asset Value = R&D Investment + Liquidity Backing
+        Token Price = Asset Value ÷ ICO Token Amount
+        
+        Current: ${:,.0f} ÷ {:,.0f} = ${:.4f}
+        ```
+        
+        ### 2. Discounted Cash Flow (DCF)
+        ```
+        DCF = Σ(CFt ÷ (1 + r)^t) + Terminal Value
+        Where:
+        - CFt = Cash Flow in year t
+        - r = Discount Rate ({:.1f}%)
+        - Terminal Value = CF_final × (1 + g) ÷ (r - g)
+        - g = Terminal Growth Rate ({:.1f}%)
+        
+        Present Value: ${:,.0f}
+        Token Price: ${:,.0f} ÷ {:,.0f} = ${:.4f}
+        ```
+        
+        ### 3. Market Cap Multiple
+        ```
+        Target Market Cap = Comparable Market Cap × Multiple
+        Token Price = Target Market Cap ÷ Circulating Supply
+        
+        Current: ${:.1f}M × {:.1f} ÷ {:,.0f} = ${:.4f}
+        ```
+        
+        ### 4. Equation of Exchange (MV = PQ)
+        ```
+        M × V = P × Q
+        Token Price = (P × Q) ÷ (M × V)
+        Where:
+        - M = Money Supply (Circulating Tokens)
+        - V = Velocity ({:.1f})
+        - P × Q = Transaction Volume
+        
+        Current: ${:,.0f} ÷ ({:,.0f} × {:.1f}) = ${:.4f}
+        ```
+        
+        ### 5. Revenue Multiple
+        ```
+        Valuation = Annual Revenue × Multiple
+        Token Price = Valuation ÷ Circulating Supply
+        
+        Current: ${:,.0f} × {:.0f} ÷ {:,.0f} = ${:.4f}
+        ```
+        
+        ### 6. Weighted Average
+        ```
+        Final Price = Σ(Method Price × Weight)
+        Weights: Asset(25%) + DCF(30%) + Market(20%) + Exchange(15%) + Revenue(10%)
+        
+        Result: ${:.4f}
+        ```
+        """.format(
+            asset_value, ico_token_amount, asset_based_price,
+            discount_rate, terminal_growth_rate, dcf_value, dcf_value, circulating_at_launch, dcf_token_price,
+            comparable_market_cap, market_cap_multiple, circulating_at_launch, market_cap_price,
+            token_velocity, transaction_volume, circulating_at_launch, token_velocity, exchange_price,
+            year1_revenue, revenue_multiple, circulating_at_launch, revenue_based_price,
+            weighted_price
+        ))
+    
+        # Risk analysis
+        st.markdown("---")
+        st.subheader("⚠️ Risk Analysis & Sensitivity")
+        
+        # Sensitivity analysis
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**🔺 Upside Scenarios (+50% price):**")
+            st.write(f"• Revenue grows {revenue_growth_rate + 25}% annually")
+            st.write(f"• User adoption exceeds {user_growth_year1:,.0f} by 50%")
+            st.write(f"• Market cap multiple reaches {market_cap_multiple * 1.5:.1f}x")
+            st.write(f"• **Upside Price: ${weighted_price * 1.5:.4f}**")
+        
+        with col2:
+            st.markdown("**🔻 Downside Scenarios (-30% price):**")
+            st.write(f"• Revenue grows only {max(0, revenue_growth_rate - 25)}% annually")
+            st.write(f"• User adoption reaches only {user_growth_year1 * 0.7:,.0f}")
+            st.write(f"• Higher token velocity ({token_velocity * 1.5:.1f}x)")
+            st.write(f"• **Downside Price: ${weighted_price * 0.7:.4f}**")
+    
+    # Export functionality
+    if export_results and 'valuation_results' in st.session_state:
+        results = st.session_state.valuation_results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        export_content = f"""VCOIN TOKEN INITIAL VALUATION REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== INPUT PARAMETERS ===
+R&D Investment: ${results['input_parameters']['rd_investment']:,.0f}
+Initial Liquidity Backing: ${results['input_parameters']['liquidity_backing']:,.0f}
+Annual Operational Costs: ${results['input_parameters']['operational_costs']:,.0f}
+Total Token Supply: {results['input_parameters']['total_token_supply']:,.0f} VCOIN
+ICO Token Amount: {results['input_parameters']['ico_token_amount']:,.0f} VCOIN
+Circulating Supply at Launch: {results['input_parameters']['circulating_at_launch']:,.0f} VCOIN
+Year 1 Projected Revenue: ${results['input_parameters']['year1_revenue']:,.0f}
+Annual Revenue Growth Rate: {results['input_parameters']['revenue_growth_rate']:.1f}%
+Year 1 Expected Users: {results['input_parameters']['user_growth_year1']:,.0f}
+Annual User Growth Rate: {results['input_parameters']['user_growth_rate']:.1f}%
+Discount Rate: {results['input_parameters']['discount_rate']:.1f}%
+Terminal Growth Rate: {results['input_parameters']['terminal_growth_rate']:.1f}%
+DCF Forecast Period: {results['input_parameters']['forecast_years']} years
+Expected Token Velocity: {results['input_parameters']['token_velocity']:.1f}
+Platform Take Rate: {results['input_parameters']['platform_take_rate']:.1f}%
+Comparable Market Cap: ${results['input_parameters']['comparable_market_cap']:.1f}M
+Market Cap Multiple: {results['input_parameters']['market_cap_multiple']:.1f}x
+Current ICP Price: ${results['input_parameters']['icp_price']:.2f}
+
+=== VALUATION RESULTS ===
+Asset-Based Price: ${results['valuation_results']['asset_based_price']:.4f}
+DCF Price: ${results['valuation_results']['dcf_token_price']:.4f}
+Market Cap Multiple Price: ${results['valuation_results']['market_cap_price']:.4f}
+Exchange Equation Price: ${results['valuation_results']['exchange_price']:.4f}
+Revenue Multiple Price: ${results['valuation_results']['revenue_based_price']:.4f}
+
+RECOMMENDED PRICE: ${results['valuation_results']['weighted_price']:.4f}
+
+=== ICO ANALYSIS ===
+Total ICO Raise (USD): ${results['valuation_results']['ico_raise_usd']:,.0f}
+Total ICO Raise (ICP): {results['valuation_results']['ico_raise_icp']:,.0f} ICP
+Market Cap at Launch: ${results['valuation_results']['market_cap_at_launch']:,.0f}
+Fully Diluted Value: ${results['valuation_results']['fdv']:,.0f}
+ICO % of Total Supply: {results['valuation_results']['ico_percentage']:.1f}%
+Circulating % at Launch: {results['valuation_results']['circulating_percentage']:.1f}%
+
+=== VALUATION METHODOLOGY ===
+1. Asset-Based: (R&D + Liquidity) ÷ ICO Tokens
+2. DCF: Discounted Cash Flow with {results['input_parameters']['discount_rate']:.1f}% discount rate
+3. Market Cap Multiple: Comparable projects × {results['input_parameters']['market_cap_multiple']:.1f}x multiple
+4. Exchange Equation: MV = PQ model with {results['input_parameters']['token_velocity']:.1f} velocity
+5. Revenue Multiple: Annual revenue × 10x SaaS multiple
+
+Weighted Average: Asset(25%) + DCF(30%) + Market(20%) + Exchange(15%) + Revenue(10%)
+
+=== RISK SCENARIOS ===
+Upside Price (+50%): ${results['valuation_results']['weighted_price'] * 1.5:.4f}
+Downside Price (-30%): ${results['valuation_results']['weighted_price'] * 0.7:.4f}
+"""
+        
+        st.download_button(
+            label="📄 Download Valuation Report",
+            data=export_content,
+            file_name=f"vcoin_valuation_report_{timestamp}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+def calculate_dcf_valuation(year1_revenue, growth_rate, discount_rate, terminal_growth, years, take_rate):
+    """Calculate DCF valuation"""
+    dcf_value = 0
+    growth_decimal = growth_rate / 100
+    discount_decimal = discount_rate / 100
+    terminal_decimal = terminal_growth / 100
+    
+    # Calculate yearly cash flows
+    for year in range(1, years + 1):
+        revenue = year1_revenue * ((1 + growth_decimal) ** year)
+        cash_flow = revenue * (take_rate / 100)  # Platform's share
+        present_value = cash_flow / ((1 + discount_decimal) ** year)
+        dcf_value += present_value
+    
+    # Terminal value
+    final_year_revenue = year1_revenue * ((1 + growth_decimal) ** years)
+    final_cash_flow = final_year_revenue * (take_rate / 100)
+    terminal_cash_flow = final_cash_flow * (1 + terminal_decimal)
+    terminal_value = terminal_cash_flow / (discount_decimal - terminal_decimal)
+    terminal_pv = terminal_value / ((1 + discount_decimal) ** years)
+    
+    return dcf_value + terminal_pv
+
+def calculate_transaction_volume(users_year1, user_growth, revenue_year1, revenue_growth):
+    """Calculate expected transaction volume for equation of exchange"""
+    # Estimate transaction volume based on users and revenue
+    avg_revenue_per_user = revenue_year1 / users_year1
+    transaction_multiplier = 20  # Assume transactions are 20x revenue (typical for platforms)
+    
+    return revenue_year1 * transaction_multiplier
+
+def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenario: str) -> List[Dict[str, Any]]:
+    """Run enhanced economic simulation with comprehensive parameters"""
+    
+    # Initialize simulation results
+    results = []
+    
+    # Define scenario parameters
+    scenario_configs = {
+        "Conservative": {
+            'user_growth_rate': 0.02,  # 2% monthly
+            'revenue_growth_rate': 0.015,  # 1.5% monthly
+            'churn_multiplier': 1.0
+        },
+        "Moderate": {
+            'user_growth_rate': 0.05,  # 5% monthly
+            'revenue_growth_rate': 0.03,  # 3% monthly
+            'churn_multiplier': 0.8
+        },
+        "Aggressive": {
+            'user_growth_rate': 0.10,  # 10% monthly
+            'revenue_growth_rate': 0.06,  # 6% monthly
+            'churn_multiplier': 0.6
+        }
+    }
+    
+    config = scenario_configs[scenario]
+    
+    # Initial values
+    current_supply = params['initial_supply']
+    current_users = params['daily_users']
+    current_revenue = params['daily_revenue']
+    current_price = params['initial_price']
+    staked_tokens = current_supply * 0.3  # Assume 30% initially staked
+    
+    # Simulate each day
+    for day in range(days):
+        # Monthly growth (every 30 days)
+        if day % 30 == 0 and day > 0:
+            # Calculate new users and churn separately
+            new_users_added = current_users * config['user_growth_rate']
+            users_churned = current_users * params['monthly_churn_rate'] * config['churn_multiplier']
+            net_user_change = new_users_added - users_churned
+            current_users = max(1, current_users + net_user_change)
+            
+            # Store monthly metrics
+            monthly_metrics = {
+                'new_users_added': new_users_added,
+                'users_churned': users_churned,
+                'net_user_change': net_user_change,
+                'churn_rate': params['monthly_churn_rate'] * config['churn_multiplier']
+            }
+            
+            # Revenue growth
+            current_revenue = current_revenue * (1 + config['revenue_growth_rate'])
+        
+        # Daily calculations
+        daily_creators = current_users * params['content_creation_rate']
+        daily_rewards_pool = current_revenue * 0.7  # 70% of revenue to rewards
+        
+        # Reward distribution
+        creator_rewards = daily_rewards_pool * params['creator_share']
+        engagement_rewards = daily_rewards_pool * params['engagement_share']
+        commission_rewards = daily_rewards_pool * params['commission_share']
+        royalty_rewards = daily_rewards_pool * params['royalty_share']
+        
+        # Transaction fees
+        daily_transactions = current_users * (params['avg_session_minutes'] / 30)  # Transactions per session
+        transaction_fees = daily_transactions * current_price * params['transaction_fee_percent']
+        
+        # Staking rewards
+        daily_staking_rewards = staked_tokens * (params['staking_apy'] / 365)
+        
+        # Token burns
+        commission_burned = commission_rewards * params['commission_burn_rate']
+        total_burned = commission_burned
+        
+        # Token minting (inflation)
+        daily_inflation = current_supply * (params['annual_inflation_rate'] / 365)
+        current_supply = min(params['max_supply'], current_supply + daily_inflation - total_burned)
+        
+        # Price calculation (simplified)
+        market_cap = current_revenue * 365 * 10  # 10x annual revenue multiple
+        current_price = market_cap / current_supply
+        
+        # Update staked tokens
+        staking_rate = min(0.6, 0.3 + (params['staking_apy'] - 0.05) * 2)  # Higher APY = more staking
+        staked_tokens = current_supply * staking_rate
+        
+        # Calculate metrics
+        result = {
+            'day': day,
+            'current_supply': current_supply,
+            'token_price': current_price,
+            'market_cap': market_cap,
+            'daily_users': current_users,
+            'daily_creators': daily_creators,
+            'creator_rewards': creator_rewards,
+            'engagement_rewards': engagement_rewards,
+            'commission_rewards': commission_rewards,
+            'royalty_rewards': royalty_rewards,
+            'total_rewards': creator_rewards + engagement_rewards + commission_rewards + royalty_rewards,
+            'total_burned': total_burned,
+            'transaction_fees': transaction_fees,
+            'platform_revenue': current_revenue,
+            'staked_tokens': staked_tokens,
+            'staked_percentage': (staked_tokens / current_supply) * 100,
+            'current_inflation_rate': (daily_inflation / current_supply) * 365 * 100,
+            'actual_token_velocity': params['token_velocity'],
+            'daily_burn_rate': (total_burned / current_supply) * 100,
+            'avg_creator_earnings': (creator_rewards * current_price) / max(1, daily_creators),
+            'avg_user_earnings': (engagement_rewards * current_price) / current_users,
+            'user_retention_rate': 100 - (params['monthly_churn_rate'] * config['churn_multiplier'] * 100),
+            'acquisition_roi': (current_revenue / current_users * 30) / params['user_acquisition_cost'],
+            'revenue_cost_ratio': current_revenue / (daily_rewards_pool + params['user_acquisition_cost'] * current_users / 30),
+            'health_score': min(100, (current_price / params['initial_price']) * 50 + 
+                              (current_users / params['daily_users']) * 25 + 
+                              (staking_rate * 25)),
+            'platform_health': min(100, (current_revenue / params['daily_revenue']) * 40 + 
+                                 (current_users / params['daily_users']) * 35 + 
+                                 ((100 - params['monthly_churn_rate'] * 100) / 100) * 25),
+            'token_economy_score': min(100, (1 - params['annual_inflation_rate']) * 30 + 
+                                     staking_rate * 40 + 
+                                     (total_burned / daily_inflation if daily_inflation > 0 else 1) * 30),
+            'user_satisfaction': min(100, (params['avg_session_minutes'] / 60) * 30 + 
+                                   (current_price / params['initial_price']) * 35 + 
+                                   ((engagement_rewards * current_price) / current_users) * 35)
+        }
+        
+        results.append(result)
+    
+    return results
+
+def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: Dict[str, Any], months: int):
+    """Display enhanced simulation results with comprehensive metrics"""
+    
+    if not results:
+        st.error("No simulation results to display")
+        return
+    
+    final_result = results[-1]
+    initial_result = results[0]
+    
+    st.header("📊 Enhanced Simulation Results")
+    st.markdown(f"**{months}-Month Economic Simulation Complete**")
+    
+    # Key Metrics
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    
+    with col1:
+        st.metric("Final Token Price", f"${final_result['token_price']:.7f}",
+                 f"{((final_result['token_price'] / initial_result['token_price']) - 1) * 100:+.1f}%")
+        st.metric("Market Cap", f"${final_result['market_cap']:,.0f}")
+    
+    with col2:
+        st.metric("Daily Active Users", f"{final_result['daily_users']:,.0f}",
+                 f"{((final_result['daily_users'] / initial_result['daily_users']) - 1) * 100:+.1f}%")
+        st.metric("User Retention", f"{final_result['user_retention_rate']:.1f}%")
+    
+    with col3:
+        st.metric("Token Supply", f"{final_result['current_supply']:,.0f}",
+                 f"{((final_result['current_supply'] / initial_result['current_supply']) - 1) * 100:+.1f}%")
+        st.metric("Staked Tokens", f"{final_result['staked_percentage']:.1f}%")
+    
+    with col4:
+        st.metric("Platform Health", f"{final_result['platform_health']:.1f}/100")
+        st.metric("Economy Score", f"{final_result['token_economy_score']:.1f}/100")
+    
+    # Charts
+    st.subheader("📈 Performance Charts")
+    
+    # Prepare data for charts
+    days = [r['day'] for r in results]
+    prices = [r['token_price'] for r in results]
+    users = [r['daily_users'] for r in results]
+    supply = [r['current_supply'] for r in results]
+    
+    # Price and user growth chart
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Token Price Over Time', 'User Growth', 'Token Supply', 'Daily Rewards'),
+        specs=[[{"secondary_y": False}, {"secondary_y": False}],
+               [{"secondary_y": False}, {"secondary_y": False}]]
+    )
+    
+    fig.add_trace(go.Scatter(x=days, y=prices, name="Token Price ($)", line=dict(color='green')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=days, y=users, name="Daily Users", line=dict(color='blue')), row=1, col=2)
+    fig.add_trace(go.Scatter(x=days, y=supply, name="Token Supply", line=dict(color='orange')), row=2, col=1)
+    fig.add_trace(go.Scatter(x=days, y=[r['total_rewards'] for r in results], name="Daily Rewards", line=dict(color='purple')), row=2, col=2)
+    
+    fig.update_layout(height=600, showlegend=True, title_text="Economic Simulation Results")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Economic Health Metrics
+    st.subheader("💊 Economic Health Analysis")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.markdown("**🟢 Positive Indicators:**")
+        if final_result['revenue_cost_ratio'] > 1:
+            st.write("✅ Revenue covers costs")
+        if final_result['user_retention_rate'] > 80:
+            st.write("✅ Strong user retention")
+        if final_result['staked_percentage'] > 30:
+            st.write("✅ Good token staking rate")
+        if final_result['acquisition_roi'] > 2:
+            st.write("✅ Positive user acquisition ROI")
+    
+    with col2:
+        st.markdown("**🔴 Risk Factors:**")
+        if final_result['current_inflation_rate'] > 10:
+            st.write("⚠️ High inflation rate")
+        if final_result['user_retention_rate'] < 70:
+            st.write("⚠️ High user churn")
+        if final_result['revenue_cost_ratio'] < 1:
+            st.write("⚠️ Costs exceed revenue")
+        if final_result['token_price'] < initial_result['token_price'] * 0.5:
+            st.write("⚠️ Significant token devaluation")
+    
+    # Detailed breakdown
+    with st.expander("📋 Detailed Economic Breakdown"):
+        st.markdown(f"""
+        **Creator Economics:**
+        - Daily creator rewards: {final_result['creator_rewards']:,.0f} VCOIN
+        - Average creator earnings: ${final_result['avg_creator_earnings']:.2f}/day
+        - Total creators: {final_result['daily_creators']:,.0f}
+        
+        **User Economics:**
+        - Daily engagement rewards: {final_result['engagement_rewards']:,.0f} VCOIN
+        - Average user earnings: ${final_result['avg_user_earnings']:.2f}/day
+        - User retention rate: {final_result['user_retention_rate']:.1f}%
+        
+        **Platform Economics:**
+        - Daily platform revenue: ${final_result['platform_revenue']:,.0f}
+        - Transaction fees: ${final_result['transaction_fees']:,.0f}
+        - User acquisition ROI: {final_result['acquisition_roi']:.1f}x
+        
+        **Token Economics:**
+        - Current inflation: {final_result['current_inflation_rate']:.1f}% annually
+        - Daily burn rate: {final_result['daily_burn_rate']:.2f}%
+        - Token velocity: {final_result['actual_token_velocity']:.1f}x
+        """)
+    
+    return results
+
+def reverse_simulation_interface():
+    """Reverse simulation to find parameters for target creator/consumer earnings"""
+    
+    st.header("🔄 Reverse Simulation Calculator")
+    st.markdown("**Find the right parameters to achieve target creator and consumer earnings**")
+    
+    # Target earnings inputs
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("🎯 Target Creator Earnings")
+        target_creator_daily_usd = st.number_input("Target Creator Daily Earnings ($)", 
+                                                  min_value=1, max_value=10000, value=50, step=1,
+                                                  help="💡 How much should an average creator earn per day?")
+        
+        expected_creators_percent = st.slider("Expected Creator Participation (%)", 
+                                            min_value=1, max_value=20, value=5, step=1,
+                                            help="💡 Percentage of users who create content daily")
+        
+        st.subheader("🎯 Target Consumer Earnings")
+        target_consumer_daily_usd = st.number_input("Target Consumer Daily Earnings ($)", 
+                                                   min_value=0.1, max_value=100.0, value=5.0, step=0.1,
+                                                   help="💡 How much should an average user earn per day from engagement?")
+        
+    with col2:
+        st.subheader("📊 Platform Assumptions")
+        assumed_daily_users = st.number_input("Assumed Daily Active Users", 
+                                            min_value=100, max_value=10_000_000, value=10_000, step=1000,
+                                            help="💡 Expected platform size for calculations")
+        
+        assumed_token_price = st.number_input("Assumed Token Price ($)", 
+                                            min_value=0.0000001, max_value=10.0, value=0.10, step=0.0000001,
+                                            help="💡 Expected token price at target earnings period", format="%.7f")
+        
+        creator_engagement_ratio = st.slider("Creator vs Consumer Reward Ratio", 
+                                           min_value=1.0, max_value=10.0, value=4.0, step=0.5,
+                                           help="💡 How many times more should creators earn than consumers?")
+    
+    # Calculate button
+    if st.button("🧮 Calculate Required Parameters", type="primary", key="reverse_calc"):
+        
+        # Calculate required token rewards
+        creators_count = assumed_daily_users * (expected_creators_percent / 100)
+        total_creator_tokens_needed = (target_creator_daily_usd * creators_count) / assumed_token_price
+        total_consumer_tokens_needed = (target_consumer_daily_usd * assumed_daily_users) / assumed_token_price
+        
+        total_daily_tokens_needed = total_creator_tokens_needed + total_consumer_tokens_needed
+        
+        # Calculate required daily revenue (assuming 70% goes to rewards)
+        required_daily_revenue = (total_daily_tokens_needed * assumed_token_price) / 0.7
+        
+        # Calculate reward distribution percentages
+        creator_share_needed = total_creator_tokens_needed / total_daily_tokens_needed
+        consumer_share_needed = total_consumer_tokens_needed / total_daily_tokens_needed
+        
+        # Display results
+        st.markdown("---")
+        st.header("📊 Required Parameters")
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            st.metric("Required Daily Revenue", f"${required_daily_revenue:,.0f}")
+            st.metric("Revenue per User", f"${required_daily_revenue/assumed_daily_users:.2f}")
+            st.metric("Total Daily Token Rewards", f"{total_daily_tokens_needed:,.0f} VCOIN")
+        
+        with col2:
+            st.metric("Creator Share", f"{creator_share_needed:.1%}")
+            st.metric("Consumer Share", f"{consumer_share_needed:.1%}")
+            st.metric("Remaining (Commission + Royalty)", f"{1 - creator_share_needed - consumer_share_needed:.1%}")
+        
+        with col3:
+            st.metric("Active Creators", f"{creators_count:,.0f}")
+            st.metric("Creator Tokens/Day", f"{total_creator_tokens_needed/creators_count:,.0f}")
+            st.metric("Consumer Tokens/Day", f"{total_consumer_tokens_needed/assumed_daily_users:.0f}")
+        
+        # Feasibility analysis
+        st.subheader("🔍 Feasibility Analysis")
+        
+        revenue_per_user = required_daily_revenue / assumed_daily_users
+        
+        if revenue_per_user > 10:
+            st.error("⚠️ **High Revenue Requirement**: Requires ${:.2f} revenue per user daily. Consider reducing target earnings or increasing user base.".format(revenue_per_user))
+        elif revenue_per_user > 1:
+            st.warning("⚠️ **Moderate Revenue Requirement**: Requires ${:.2f} revenue per user daily. Achievable with strong monetization.".format(revenue_per_user))
+        else:
+            st.success("✅ **Feasible Revenue Requirement**: Requires ${:.2f} revenue per user daily. Very achievable.".format(revenue_per_user))
+        
+        # Recommendations
+        st.subheader("💡 Recommendations")
+        
+        if creator_share_needed > 0.6:
+            st.info("💡 **High Creator Share**: Consider increasing consumer engagement rewards to balance the economy.")
+        
+        if consumer_share_needed < 0.2:
+            st.info("💡 **Low Consumer Share**: Consider increasing consumer rewards to drive engagement.")
+        
+        # Export functionality
+        if st.button("📄 Export Reverse Simulation", key="export_reverse"):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            export_content = f"""VCOIN REVERSE SIMULATION REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== TARGET EARNINGS ===
+Target Creator Daily Earnings: ${target_creator_daily_usd}
+Target Consumer Daily Earnings: ${target_consumer_daily_usd}
+Expected Creator Participation: {expected_creators_percent}%
+
+=== PLATFORM ASSUMPTIONS ===
+Daily Active Users: {assumed_daily_users:,}
+Assumed Token Price: ${assumed_token_price:.7f}
+Creator/Consumer Ratio: {creator_engagement_ratio:.1f}x
+
+=== REQUIRED PARAMETERS ===
+Required Daily Revenue: ${required_daily_revenue:,.0f}
+Revenue per User: ${revenue_per_user:.2f}
+Total Daily Token Rewards: {total_daily_tokens_needed:,.0f} VCOIN
+
+Creator Share Needed: {creator_share_needed:.1%}
+Consumer Share Needed: {consumer_share_needed:.1%}
+Remaining (Commission + Royalty): {1 - creator_share_needed - consumer_share_needed:.1%}
+
+=== TOKEN DISTRIBUTION ===
+Active Creators: {creators_count:,.0f}
+Creator Tokens per Day: {total_creator_tokens_needed/creators_count:,.0f}
+Consumer Tokens per Day: {total_consumer_tokens_needed/assumed_daily_users:.0f}
+
+=== FEASIBILITY ASSESSMENT ===
+Revenue Requirement: {"High" if revenue_per_user > 10 else "Moderate" if revenue_per_user > 1 else "Feasible"}
+Creator Share: {"High" if creator_share_needed > 0.6 else "Balanced"}
+Consumer Share: {"Low" if consumer_share_needed < 0.2 else "Adequate"}
+"""
+            
+            st.download_button(
+                label="📄 Download Reverse Simulation Report",
+                data=export_content,
+                file_name=f"vcoin_reverse_simulation_{timestamp}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+def cold_start_scenario_interface():
+    """Cold start scenario with ICO tokens and pre-launch staking"""
+    
+    st.header("🚀 Cold Start Scenario Simulation")
+    st.markdown("**Simulate platform launch with ICO tokens, pre-launch staking, and initial token price**")
+    
+    # ICO and Pre-launch parameters
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("🪙 ICO & Token Setup")
+        
+        initial_token_price = st.number_input("Initial Token Price ($)", 
+                                            min_value=0.0000001, max_value=1.0, value=0.05, step=0.0000001,
+                                            help="💡 Token price at launch (from ICO/initial valuation)", format="%.7f")
+        
+        ico_tokens_sold = st.number_input("ICO Tokens Sold (millions)", 
+                                        min_value=1, max_value=1000, value=100, step=10,
+                                        help="💡 Tokens sold during ICO") * 1_000_000
+        
+        ico_funds_raised = ico_tokens_sold * initial_token_price
+        st.info(f"**ICO Funds Raised: ${ico_funds_raised:,.0f}**")
+        
+        pre_staked_percentage = st.slider("Pre-Launch Staking (%)", 
+                                        min_value=10, max_value=80, value=40, step=5,
+                                        help="💡 Percentage of ICO tokens staked before launch")
+        
+        pre_staked_tokens = ico_tokens_sold * (pre_staked_percentage / 100)
+        
+        st.subheader("🎯 Launch Parameters")
+        launch_daily_users = st.number_input("Launch Day Active Users", 
+                                           min_value=10, max_value=100_000, value=1_000, step=100,
+                                           help="💡 Users on day 1 of platform launch")
+        
+        launch_daily_revenue = st.number_input("Launch Daily Revenue ($)", 
+                                             min_value=10, max_value=50_000, value=500, step=50,
+                                             help="💡 Platform revenue on day 1")
+    
+    with col2:
+        st.subheader("📈 Growth Projections")
+        
+        monthly_user_growth = st.slider("Monthly User Growth (%)", 
+                                       min_value=5, max_value=100, value=25, step=5,
+                                       help="💡 Expected monthly user growth rate")
+        
+        monthly_churn_rate = st.slider("Monthly Churn Rate (%)", 
+                                     min_value=5, max_value=50, value=20, step=5,
+                                     help="💡 Percentage of users who leave monthly")
+        
+        monthly_revenue_growth = st.slider("Monthly Revenue Growth (%)", 
+                                         min_value=5, max_value=80, value=20, step=5,
+                                         help="💡 Expected monthly revenue growth rate")
+        
+        simulation_months = st.selectbox("Simulation Period (months)", 
+                                       [3, 6, 12, 18, 24], index=2,
+                                       help="💡 How many months to simulate post-launch")
+        
+        st.subheader("💰 Economic Settings")
+        creator_share = st.slider("Creator Share (%)", 
+                                min_value=20, max_value=60, value=40, step=5)
+        
+        engagement_share = st.slider("Engagement Share (%)", 
+                                   min_value=20, max_value=60, value=40, step=5)
+        
+        commission_share = st.slider("Commission Share (%)", 
+                                   min_value=5, max_value=20, value=10, step=1)
+        
+        royalty_share = 100 - creator_share - engagement_share - commission_share
+        if royalty_share < 0:
+            st.error("⚠️ Total shares cannot exceed 100%")
+            royalty_share = 0
+        else:
+            st.info(f"**Royalty Share: {royalty_share}%**")
+    
+    # Execute simulation
+    if st.button("🚀 Simulate Cold Start", type="primary", key="cold_start_sim"):
+        
+        # Calculate monthly metrics
+        results = []
+        current_users = launch_daily_users
+        current_revenue = launch_daily_revenue
+        current_token_price = initial_token_price
+        circulating_supply = ico_tokens_sold
+        staked_tokens = pre_staked_tokens
+        
+        for month in range(simulation_months + 1):  # Include month 0 (launch)
+            # Monthly user dynamics
+            if month > 0:
+                new_users_added = current_users * (monthly_user_growth / 100)
+                users_churned = current_users * (monthly_churn_rate / 100)
+                net_user_change = new_users_added - users_churned
+                current_users = max(launch_daily_users * 0.1, current_users + net_user_change)  # Never go below 10% of launch
+                
+                # Revenue growth
+                current_revenue = current_revenue * (1 + monthly_revenue_growth / 100)
+            else:
+                new_users_added = 0
+                users_churned = 0
+                net_user_change = 0
+            
+            # Daily economics
+            daily_creators = current_users * 0.05  # Assume 5% create content
+            daily_rewards_pool = current_revenue * 0.7  # 70% to rewards
+            
+            creator_rewards = daily_rewards_pool * (creator_share / 100)
+            engagement_rewards = daily_rewards_pool * (engagement_share / 100)
+            commission_rewards = daily_rewards_pool * (commission_share / 100)
+            
+            # Token price (simplified market cap model)
+            market_cap = current_revenue * 365 * 8  # 8x annual revenue
+            current_token_price = market_cap / circulating_supply
+            
+            # Creator and consumer earnings in USD
+            avg_creator_earnings_usd = (creator_rewards * current_token_price) / max(1, daily_creators)
+            avg_consumer_earnings_usd = (engagement_rewards * current_token_price) / current_users
+            
+            # Staking dynamics
+            staking_apy = 0.15  # 15% APY
+            monthly_staking_rewards = staked_tokens * (staking_apy / 12)
+            
+            result = {
+                'month': month,
+                'daily_users': current_users,
+                'new_users_added': new_users_added,
+                'users_churned': users_churned,
+                'net_user_change': net_user_change,
+                'daily_revenue': current_revenue,
+                'token_price': current_token_price,
+                'market_cap': market_cap,
+                'circulating_supply': circulating_supply,
+                'staked_tokens': staked_tokens,
+                'staked_percentage': (staked_tokens / circulating_supply) * 100,
+                'creator_rewards_tokens': creator_rewards,
+                'engagement_rewards_tokens': engagement_rewards,
+                'avg_creator_earnings_usd': avg_creator_earnings_usd,
+                'avg_consumer_earnings_usd': avg_consumer_earnings_usd,
+                'monthly_staking_rewards': monthly_staking_rewards,
+                'churn_rate': monthly_churn_rate if month > 0 else 0,
+                'growth_rate': monthly_user_growth if month > 0 else 0
+            }
+            
+            results.append(result)
+        
+        # Display results
+        st.markdown("---")
+        st.header("📊 Cold Start Simulation Results")
+        
+        final_result = results[-1]
+        initial_result = results[0]
+        
+        # Key metrics
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+        
+        with col1:
+            st.metric("Final Users", f"{final_result['daily_users']:,.0f}",
+                     f"{((final_result['daily_users'] / initial_result['daily_users']) - 1) * 100:+.1f}%")
+            st.metric("Final Token Price", f"${final_result['token_price']:.7f}",
+                     f"{((final_result['token_price'] / initial_result['token_price']) - 1) * 100:+.1f}%")
+        
+        with col2:
+            st.metric("Final Daily Revenue", f"${final_result['daily_revenue']:,.0f}",
+                     f"{((final_result['daily_revenue'] / initial_result['daily_revenue']) - 1) * 100:+.1f}%")
+            st.metric("Market Cap", f"${final_result['market_cap']:,.0f}")
+        
+        with col3:
+            st.metric("Creator Daily Earnings", f"${final_result['avg_creator_earnings_usd']:.2f}")
+            st.metric("Consumer Daily Earnings", f"${final_result['avg_consumer_earnings_usd']:.2f}")
+        
+        with col4:
+            st.metric("Staked Tokens", f"{final_result['staked_percentage']:.1f}%")
+            st.metric("ICO ROI", f"{((final_result['token_price'] / initial_token_price) - 1) * 100:+.1f}%")
+        
+        # Monthly breakdown table
+        st.subheader("📋 Monthly Progress")
+        
+        df_results = pd.DataFrame(results)
+        df_display = df_results[[
+            'month', 'daily_users', 'new_users_added', 'users_churned', 
+            'daily_revenue', 'token_price', 'avg_creator_earnings_usd', 'avg_consumer_earnings_usd'
+        ]].copy()
+        
+        df_display.columns = [
+            'Month', 'Daily Users', 'New Users', 'Churned Users', 
+            'Daily Revenue ($)', 'Token Price ($)', 'Creator Earnings ($)', 'Consumer Earnings ($)'
+        ]
+        
+        # Format the dataframe
+        df_display['Daily Users'] = df_display['Daily Users'].apply(lambda x: f"{x:,.0f}")
+        df_display['New Users'] = df_display['New Users'].apply(lambda x: f"{x:,.0f}")
+        df_display['Churned Users'] = df_display['Churned Users'].apply(lambda x: f"{x:,.0f}")
+        df_display['Daily Revenue ($)'] = df_display['Daily Revenue ($)'].apply(lambda x: f"${x:,.0f}")
+        df_display['Token Price ($)'] = df_display['Token Price ($)'].apply(lambda x: f"${x:.7f}")
+        df_display['Creator Earnings ($)'] = df_display['Creator Earnings ($)'].apply(lambda x: f"${x:.2f}")
+        df_display['Consumer Earnings ($)'] = df_display['Consumer Earnings ($)'].apply(lambda x: f"${x:.2f}")
+        
+        st.dataframe(df_display, use_container_width=True)
+        
+        # Export functionality
+        if st.button("📄 Export Cold Start Report", key="export_cold_start"):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            export_content = f"""VCOIN COLD START SCENARIO REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== ICO & LAUNCH SETUP ===
+Initial Token Price: ${initial_token_price:.7f}
+ICO Tokens Sold: {ico_tokens_sold:,} VCOIN
+ICO Funds Raised: ${ico_funds_raised:,.0f}
+Pre-Launch Staking: {pre_staked_percentage}% ({pre_staked_tokens:,.0f} tokens)
+
+Launch Daily Users: {launch_daily_users:,}
+Launch Daily Revenue: ${launch_daily_revenue:,}
+
+=== GROWTH PARAMETERS ===
+Monthly User Growth: {monthly_user_growth}%
+Monthly Churn Rate: {monthly_churn_rate}%
+Monthly Revenue Growth: {monthly_revenue_growth}%
+Simulation Period: {simulation_months} months
+
+=== REWARD DISTRIBUTION ===
+Creator Share: {creator_share}%
+Engagement Share: {engagement_share}%
+Commission Share: {commission_share}%
+Royalty Share: {royalty_share}%
+
+=== FINAL RESULTS (Month {simulation_months}) ===
+Final Daily Users: {final_result['daily_users']:,.0f}
+Final Daily Revenue: ${final_result['daily_revenue']:,.0f}
+Final Token Price: ${final_result['token_price']:.7f}
+Final Market Cap: ${final_result['market_cap']:,.0f}
+
+Creator Daily Earnings: ${final_result['avg_creator_earnings_usd']:.2f}
+Consumer Daily Earnings: ${final_result['avg_consumer_earnings_usd']:.2f}
+ICO Token ROI: {((final_result['token_price'] / initial_token_price) - 1) * 100:+.1f}%
+
+=== MONTHLY BREAKDOWN ===
+"""
+            
+            for result in results:
+                export_content += f"""
+Month {result['month']}:
+- Users: {result['daily_users']:,.0f} (New: {result['new_users_added']:,.0f}, Churned: {result['users_churned']:,.0f})
+- Revenue: ${result['daily_revenue']:,.0f}
+- Token Price: ${result['token_price']:.7f}
+- Creator Earnings: ${result['avg_creator_earnings_usd']:.2f}
+- Consumer Earnings: ${result['avg_consumer_earnings_usd']:.2f}
+"""
+            
+            st.download_button(
+                label="📄 Download Cold Start Report",
+                data=export_content,
+                file_name=f"vcoin_cold_start_{timestamp}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+def governance_dao_interface():
+    """Governance and DAO Economics Simulation"""
+    
+    st.header("🏛️ Governance & DAO Economics")
+    st.markdown("**Simulate governance participation, voting power distribution, and DAO treasury management**")
+    
+    # Parameter inputs
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("🗳️ Governance Parameters")
+        
+        total_voting_tokens = st.number_input("Total Voting Tokens", 
+                                            min_value=1_000_000, max_value=10_000_000_000, value=1_000_000_000, step=1_000_000,
+                                            help="💡 Total tokens eligible for governance voting")
+        
+        min_proposal_tokens = st.number_input("Min Tokens to Propose", 
+                                            min_value=1_000, max_value=10_000_000, value=100_000, step=10_000,
+                                            help="💡 Minimum tokens required to submit a governance proposal")
+        
+        quorum_percentage = st.slider("Quorum Required (%)", 
+                                    min_value=5, max_value=50, value=15, step=5,
+                                    help="💡 Minimum percentage of tokens that must vote for proposal to be valid")
+        
+        voting_period_days = st.slider("Voting Period (days)", 
+                                     min_value=1, max_value=14, value=7, step=1,
+                                     help="💡 How long voting remains open for each proposal")
+        
+        governance_reward_pool = st.number_input("Monthly Governance Rewards", 
+                                               min_value=0, max_value=10_000_000, value=500_000, step=50_000,
+                                               help="💡 Monthly token rewards for governance participation")
+        
+        st.subheader("👥 Participation Dynamics")
+        
+        voter_participation_rate = st.slider("Voter Participation Rate (%)", 
+                                           min_value=5, max_value=80, value=25, step=5,
+                                           help="💡 Percentage of eligible voters who typically participate")
+        
+        whale_concentration = st.slider("Top 10 Holders Control (%)", 
+                                       min_value=10, max_value=80, value=35, step=5,
+                                       help="💡 Percentage of voting power held by top 10 addresses")
+        
+        delegation_rate = st.slider("Token Delegation Rate (%)", 
+                                   min_value=0, max_value=70, value=20, step=5,
+                                   help="💡 Percentage of tokens delegated to active voters")
+    
+    with col2:
+        st.subheader("🏦 DAO Treasury")
+        
+        initial_treasury_usd = st.number_input("Initial Treasury (USD)", 
+                                             min_value=100_000, max_value=100_000_000, value=5_000_000, step=100_000,
+                                             help="💡 Initial DAO treasury funds")
+        
+        monthly_treasury_inflow = st.number_input("Monthly Treasury Inflow (USD)", 
+                                                min_value=10_000, max_value=5_000_000, value=200_000, step=10_000,
+                                                help="💡 Monthly funds flowing into treasury (fees, revenue share)")
+        
+        development_budget_percent = st.slider("Development Budget (%)", 
+                                             min_value=20, max_value=70, value=40, step=5,
+                                             help="💡 Percentage of treasury allocated to development")
+        
+        marketing_budget_percent = st.slider("Marketing Budget (%)", 
+                                           min_value=10, max_value=50, value=25, step=5,
+                                           help="💡 Percentage of treasury allocated to marketing")
+        
+        community_budget_percent = st.slider("Community Programs (%)", 
+                                           min_value=10, max_value=40, value=20, step=5,
+                                           help="💡 Percentage for community incentives and programs")
+        
+        reserve_percent = 100 - development_budget_percent - marketing_budget_percent - community_budget_percent
+        if reserve_percent < 0:
+            st.error("⚠️ Budget allocations exceed 100%")
+            reserve_percent = 0
+        else:
+            st.info(f"**Reserve Fund: {reserve_percent}%**")
+        
+        st.subheader("📊 Proposal Economics")
+        
+        proposals_per_month = st.slider("Proposals per Month", 
+                                       min_value=1, max_value=20, value=5, step=1,
+                                       help="💡 Expected number of governance proposals monthly")
+        
+        proposal_success_rate = st.slider("Proposal Success Rate (%)", 
+                                        min_value=20, max_value=90, value=60, step=5,
+                                        help="💡 Percentage of proposals that typically pass")
+    
+    # Execute simulation
+    if st.button("🏛️ Simulate Governance", type="primary", key="governance_sim"):
+        
+        # Calculate governance metrics
+        quorum_tokens_needed = total_voting_tokens * (quorum_percentage / 100)
+        participating_tokens = total_voting_tokens * (voter_participation_rate / 100)
+        whale_tokens = total_voting_tokens * (whale_concentration / 100)
+        delegated_tokens = total_voting_tokens * (delegation_rate / 100)
+        
+        # Treasury calculations
+        monthly_dev_budget = monthly_treasury_inflow * (development_budget_percent / 100)
+        monthly_marketing_budget = monthly_treasury_inflow * (marketing_budget_percent / 100)
+        monthly_community_budget = monthly_treasury_inflow * (community_budget_percent / 100)
+        monthly_reserve = monthly_treasury_inflow * (reserve_percent / 100)
+        
+        # Governance economics
+        reward_per_participating_token = governance_reward_pool / max(1, participating_tokens)
+        monthly_proposals = proposals_per_month
+        successful_proposals = monthly_proposals * (proposal_success_rate / 100)
+        
+        # Display results
+        st.markdown("---")
+        st.header("🏛️ Governance Simulation Results")
+        
+        # Key metrics
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+        
+        with col1:
+            st.metric("Quorum Threshold", f"{quorum_tokens_needed:,.0f} tokens")
+            st.metric("Participating Tokens", f"{participating_tokens:,.0f}")
+            st.metric("Quorum Achievement", f"{'✅ Likely' if participating_tokens >= quorum_tokens_needed else '❌ At Risk'}")
+        
+        with col2:
+            st.metric("Whale Voting Power", f"{whale_concentration}%")
+            st.metric("Delegated Tokens", f"{delegated_tokens:,.0f}")
+            st.metric("Governance Centralization", f"{'⚠️ High' if whale_concentration > 50 else '✅ Moderate' if whale_concentration > 30 else '✅ Low'}")
+        
+        with col3:
+            st.metric("Monthly Dev Budget", f"${monthly_dev_budget:,.0f}")
+            st.metric("Monthly Marketing", f"${monthly_marketing_budget:,.0f}")
+            st.metric("Monthly Community", f"${monthly_community_budget:,.0f}")
+        
+        with col4:
+            st.metric("Reward per Token", f"{reward_per_participating_token:.4f} VCOIN")
+            st.metric("Monthly Proposals", f"{monthly_proposals}")
+            st.metric("Success Rate", f"{proposal_success_rate}%")
+        
+        # Governance health analysis
+        st.subheader("🔍 Governance Health Analysis")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**🟢 Positive Indicators:**")
+            if participating_tokens >= quorum_tokens_needed:
+                st.write("✅ Sufficient participation for quorum")
+            if whale_concentration < 40:
+                st.write("✅ Reasonable decentralization")
+            if delegation_rate > 15:
+                st.write("✅ Active delegation system")
+            if proposal_success_rate > 40 and proposal_success_rate < 80:
+                st.write("✅ Healthy proposal success rate")
+        
+        with col2:
+            st.markdown("**🔴 Risk Factors:**")
+            if participating_tokens < quorum_tokens_needed:
+                st.write("⚠️ Low participation - quorum at risk")
+            if whale_concentration > 50:
+                st.write("⚠️ High centralization risk")
+            if voter_participation_rate < 15:
+                st.write("⚠️ Very low voter engagement")
+            if proposal_success_rate > 85:
+                st.write("⚠️ Potentially rubber-stamp governance")
+        
+        # Treasury projection
+        st.subheader("💰 12-Month Treasury Projection")
+        
+        months = list(range(1, 13))
+        treasury_balance = [initial_treasury_usd + (monthly_treasury_inflow - monthly_treasury_inflow) * month for month in months]
+        treasury_balance = [initial_treasury_usd + monthly_reserve * month for month in months]
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=months, y=treasury_balance, mode='lines+markers', 
+                               name='Treasury Balance', line=dict(color='green', width=3)))
+        fig.update_layout(title="DAO Treasury Growth", xaxis_title="Month", yaxis_title="Treasury Value (USD)")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Export functionality
+        if st.button("📄 Export Governance Analysis", key="export_governance"):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            export_content = f"""VCOIN GOVERNANCE & DAO ANALYSIS REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== GOVERNANCE PARAMETERS ===
+Total Voting Tokens: {total_voting_tokens:,} VCOIN
+Min Tokens to Propose: {min_proposal_tokens:,} VCOIN
+Quorum Required: {quorum_percentage}%
+Voting Period: {voting_period_days} days
+Monthly Governance Rewards: {governance_reward_pool:,} VCOIN
+
+=== PARTICIPATION DYNAMICS ===
+Voter Participation Rate: {voter_participation_rate}%
+Top 10 Holders Control: {whale_concentration}%
+Token Delegation Rate: {delegation_rate}%
+Participating Tokens: {participating_tokens:,.0f}
+Quorum Threshold: {quorum_tokens_needed:,.0f}
+
+=== DAO TREASURY ===
+Initial Treasury: ${initial_treasury_usd:,}
+Monthly Inflow: ${monthly_treasury_inflow:,}
+Development Budget: {development_budget_percent}% (${monthly_dev_budget:,.0f}/month)
+Marketing Budget: {marketing_budget_percent}% (${monthly_marketing_budget:,.0f}/month)
+Community Budget: {community_budget_percent}% (${monthly_community_budget:,.0f}/month)
+Reserve Fund: {reserve_percent}% (${monthly_reserve:,.0f}/month)
+
+=== PROPOSAL ECONOMICS ===
+Proposals per Month: {proposals_per_month}
+Success Rate: {proposal_success_rate}%
+Successful Proposals/Month: {successful_proposals:.1f}
+Reward per Participating Token: {reward_per_participating_token:.4f} VCOIN
+
+=== GOVERNANCE HEALTH ASSESSMENT ===
+Quorum Achievement: {'Likely' if participating_tokens >= quorum_tokens_needed else 'At Risk'}
+Centralization Risk: {'High' if whale_concentration > 50 else 'Moderate' if whale_concentration > 30 else 'Low'}
+Participation Level: {'High' if voter_participation_rate > 30 else 'Moderate' if voter_participation_rate > 15 else 'Low'}
+Treasury Sustainability: {'Growing' if monthly_reserve > 0 else 'Stable' if monthly_reserve == 0 else 'Declining'}
+
+=== 12-MONTH TREASURY PROJECTION ===
+Year-End Treasury: ${treasury_balance[-1]:,.0f}
+Total Reserve Accumulated: ${monthly_reserve * 12:,.0f}
+Monthly Burn Rate: ${monthly_treasury_inflow - monthly_reserve:,.0f}
+"""
+            
+            st.download_button(
+                label="📄 Download Governance Report",
+                data=export_content,
+                file_name=f"vcoin_governance_analysis_{timestamp}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+def vesting_unlocks_interface():
+    """Token Vesting and Unlock Schedule Simulation"""
+    
+    st.header("📅 Vesting & Token Unlocks")
+    st.markdown("**Simulate token vesting schedules, unlock events, and their market impact**")
+    
+    # Vesting parameters
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("👥 Stakeholder Allocations")
+        
+        total_token_supply = st.number_input("Total Token Supply", 
+                                           min_value=1_000_000, max_value=50_000_000_000, value=10_000_000_000, step=1_000_000,
+                                           help="💡 Total tokens to be distributed")
+        
+        team_allocation = st.slider("Team Allocation (%)", 
+                                  min_value=5, max_value=30, value=15, step=1,
+                                  help="💡 Tokens allocated to team members")
+        
+        investor_allocation = st.slider("Investor Allocation (%)", 
+                                       min_value=10, max_value=50, value=25, step=1,
+                                       help="💡 Tokens allocated to private investors")
+        
+        advisor_allocation = st.slider("Advisor Allocation (%)", 
+                                     min_value=1, max_value=10, value=3, step=1,
+                                     help="💡 Tokens allocated to advisors")
+        
+        community_allocation = st.slider("Community Allocation (%)", 
+                                        min_value=20, max_value=70, value=40, step=1,
+                                        help="💡 Tokens for community rewards and airdrops")
+        
+        treasury_allocation = st.slider("Treasury/Reserve (%)", 
+                                       min_value=5, max_value=25, value=10, step=1,
+                                       help="💡 Tokens held in treasury for future use")
+        
+        liquidity_allocation = 100 - team_allocation - investor_allocation - advisor_allocation - community_allocation - treasury_allocation
+        if liquidity_allocation < 0:
+            st.error("⚠️ Allocations exceed 100%")
+            liquidity_allocation = 0
+        else:
+            st.info(f"**Liquidity/Public Sale: {liquidity_allocation}%**")
+    
+    with col2:
+        st.subheader("⏰ Vesting Schedules")
+        
+        team_cliff_months = st.slider("Team Cliff Period (months)", 
+                                    min_value=6, max_value=24, value=12, step=3,
+                                    help="💡 Initial lock period before any team tokens unlock")
+        
+        team_vesting_months = st.slider("Team Vesting Duration (months)", 
+                                       min_value=12, max_value=60, value=36, step=6,
+                                       help="💡 Total time for team tokens to fully vest")
+        
+        investor_cliff_months = st.slider("Investor Cliff Period (months)", 
+                                        min_value=0, max_value=12, value=6, step=3,
+                                        help="💡 Initial lock period for investor tokens")
+        
+        investor_vesting_months = st.slider("Investor Vesting Duration (months)", 
+                                           min_value=6, max_value=36, value=18, step=3,
+                                           help="💡 Total time for investor tokens to fully vest")
+        
+        advisor_cliff_months = st.slider("Advisor Cliff Period (months)", 
+                                        min_value=3, max_value=12, value=6, step=3,
+                                        help="💡 Initial lock period for advisor tokens")
+        
+        advisor_vesting_months = st.slider("Advisor Vesting Duration (months)", 
+                                         min_value=6, max_value=24, value=12, step=3,
+                                         help="💡 Total time for advisor tokens to fully vest")
+        
+        st.subheader("💹 Market Impact")
+        
+        initial_token_price = st.number_input("Initial Token Price ($)", 
+                                            min_value=0.0000001, max_value=10.0, value=0.10, step=0.0000001,
+                                            help="💡 Token price at TGE (Token Generation Event)", format="%.7f")
+        
+        unlock_sell_pressure = st.slider("Unlock Sell Pressure (%)", 
+                                        min_value=5, max_value=80, value=30, step=5,
+                                        help="💡 Percentage of unlocked tokens typically sold immediately")
+        
+        market_absorption_rate = st.slider("Market Absorption Rate (%)", 
+                                         min_value=10, max_value=100, value=70, step=10,
+                                         help="💡 Market's ability to absorb selling without major price impact")
+    
+    # Simulation period
+    simulation_months = st.selectbox("Simulation Period (months)", 
+                                   [12, 24, 36, 48, 60], index=2,
+                                   help="💡 How many months to simulate vesting")
+    
+    # Execute simulation
+    if st.button("📅 Simulate Vesting Schedule", type="primary", key="vesting_sim"):
+        
+        # Calculate token amounts
+        team_tokens = total_token_supply * (team_allocation / 100)
+        investor_tokens = total_token_supply * (investor_allocation / 100)
+        advisor_tokens = total_token_supply * (advisor_allocation / 100)
+        community_tokens = total_token_supply * (community_allocation / 100)
+        treasury_tokens = total_token_supply * (treasury_allocation / 100)
+        liquidity_tokens = total_token_supply * (liquidity_allocation / 100)
+        
+        # Simulate monthly unlocks
+        months = list(range(0, simulation_months + 1))
+        monthly_unlocks = []
+        circulating_supply = [liquidity_tokens + community_tokens * 0.1]  # Assume 10% community tokens at TGE
+        token_price = [initial_token_price]
+        
+        for month in range(1, simulation_months + 1):
+            monthly_unlock = 0
+            
+            # Team vesting
+            if month > team_cliff_months:
+                monthly_team_unlock = team_tokens / max(1, team_vesting_months - team_cliff_months)
+                monthly_unlock += monthly_team_unlock
+            
+            # Investor vesting
+            if month > investor_cliff_months:
+                monthly_investor_unlock = investor_tokens / max(1, investor_vesting_months - investor_cliff_months)
+                monthly_unlock += monthly_investor_unlock
+            
+            # Advisor vesting
+            if month > advisor_cliff_months:
+                monthly_advisor_unlock = advisor_tokens / max(1, advisor_vesting_months - advisor_cliff_months)
+                monthly_unlock += monthly_advisor_unlock
+            
+            # Community gradual release (assume 5% per month)
+            monthly_community_unlock = community_tokens * 0.05
+            monthly_unlock += monthly_community_unlock
+            
+            monthly_unlocks.append(monthly_unlock)
+            
+            # Calculate circulating supply
+            new_circulating = circulating_supply[-1] + monthly_unlock
+            circulating_supply.append(new_circulating)
+            
+            # Calculate price impact
+            sell_pressure = monthly_unlock * (unlock_sell_pressure / 100)
+            price_impact = 1 - (sell_pressure / (circulating_supply[-1] * market_absorption_rate / 100))
+            new_price = token_price[-1] * max(0.1, price_impact)  # Minimum 90% price drop protection
+            token_price.append(new_price)
+        
+        # Display results
+        st.markdown("---")
+        st.header("📅 Vesting Simulation Results")
+        
+        # Key metrics
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+        
+        with col1:
+            st.metric("Initial Circulating", f"{circulating_supply[0]:,.0f}")
+            st.metric("Final Circulating", f"{circulating_supply[-1]:,.0f}")
+            st.metric("Total Unlocked", f"{circulating_supply[-1] - circulating_supply[0]:,.0f}")
+        
+        with col2:
+            st.metric("Initial Price", f"${token_price[0]:.7f}")
+            st.metric("Final Price", f"${token_price[-1]:.7f}")
+            price_change = ((token_price[-1] / token_price[0]) - 1) * 100
+            st.metric("Price Change", f"{price_change:+.1f}%")
+        
+        with col3:
+            max_monthly_unlock = max(monthly_unlocks) if monthly_unlocks else 0
+            st.metric("Peak Monthly Unlock", f"{max_monthly_unlock:,.0f}")
+            avg_monthly_unlock = sum(monthly_unlocks) / len(monthly_unlocks) if monthly_unlocks else 0
+            st.metric("Avg Monthly Unlock", f"{avg_monthly_unlock:,.0f}")
+        
+        with col4:
+            total_unlock_value = sum(monthly_unlocks) * initial_token_price
+            st.metric("Total Unlock Value", f"${total_unlock_value:,.0f}")
+            dilution_rate = (circulating_supply[-1] / circulating_supply[0] - 1) * 100
+            st.metric("Supply Dilution", f"{dilution_rate:.1f}%")
+        
+        # Vesting schedule chart
+        st.subheader("📈 Token Unlock Schedule")
+        
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=('Monthly Token Unlocks', 'Circulating Supply & Price Impact'),
+            specs=[[{"secondary_y": False}], [{"secondary_y": True}]]
+        )
+        
+        # Monthly unlocks
+        fig.add_trace(
+            go.Bar(x=months[1:], y=monthly_unlocks, name="Monthly Unlocks", marker_color='orange'),
+            row=1, col=1
+        )
+        
+        # Circulating supply
+        fig.add_trace(
+            go.Scatter(x=months, y=circulating_supply, name="Circulating Supply", line=dict(color='blue')),
+            row=2, col=1
+        )
+        
+        # Token price
+        fig.add_trace(
+            go.Scatter(x=months, y=token_price, name="Token Price", line=dict(color='red')),
+            row=2, col=1, secondary_y=True
+        )
+        
+        fig.update_layout(height=600, title_text="Vesting Schedule Analysis")
+        fig.update_xaxes(title_text="Month")
+        fig.update_yaxes(title_text="Tokens", row=1, col=1)
+        fig.update_yaxes(title_text="Circulating Supply", row=2, col=1)
+        fig.update_yaxes(title_text="Price ($)", secondary_y=True, row=2, col=1)
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Allocation breakdown
+        st.subheader("🥧 Token Allocation Breakdown")
+        
+        labels = ['Team', 'Investors', 'Advisors', 'Community', 'Treasury', 'Liquidity/Public']
+        values = [team_allocation, investor_allocation, advisor_allocation, 
+                 community_allocation, treasury_allocation, liquidity_allocation]
+        
+        fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.3)])
+        fig_pie.update_layout(title="Token Distribution")
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+        # Export functionality
+        if st.button("📄 Export Vesting Analysis", key="export_vesting"):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            export_content = f"""VCOIN VESTING & UNLOCK ANALYSIS REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== TOKEN ALLOCATION ===
+Total Token Supply: {total_token_supply:,} VCOIN
+Team Allocation: {team_allocation}% ({team_tokens:,.0f} tokens)
+Investor Allocation: {investor_allocation}% ({investor_tokens:,.0f} tokens)
+Advisor Allocation: {advisor_allocation}% ({advisor_tokens:,.0f} tokens)
+Community Allocation: {community_allocation}% ({community_tokens:,.0f} tokens)
+Treasury Allocation: {treasury_allocation}% ({treasury_tokens:,.0f} tokens)
+Liquidity/Public: {liquidity_allocation}% ({liquidity_tokens:,.0f} tokens)
+
+=== VESTING SCHEDULES ===
+Team: {team_cliff_months} month cliff, {team_vesting_months} month vesting
+Investors: {investor_cliff_months} month cliff, {investor_vesting_months} month vesting
+Advisors: {advisor_cliff_months} month cliff, {advisor_vesting_months} month vesting
+
+=== MARKET IMPACT PARAMETERS ===
+Initial Token Price: ${initial_token_price:.7f}
+Unlock Sell Pressure: {unlock_sell_pressure}%
+Market Absorption Rate: {market_absorption_rate}%
+
+=== SIMULATION RESULTS ({simulation_months} months) ===
+Initial Circulating Supply: {circulating_supply[0]:,.0f} tokens
+Final Circulating Supply: {circulating_supply[-1]:,.0f} tokens
+Total Tokens Unlocked: {circulating_supply[-1] - circulating_supply[0]:,.0f} tokens
+Supply Dilution: {dilution_rate:.1f}%
+
+Price Impact:
+Initial Price: ${token_price[0]:.7f}
+Final Price: ${token_price[-1]:.7f}
+Total Price Change: {price_change:+.1f}%
+
+Unlock Metrics:
+Peak Monthly Unlock: {max_monthly_unlock:,.0f} tokens
+Average Monthly Unlock: {avg_monthly_unlock:,.0f} tokens
+Total Unlock Value: ${total_unlock_value:,.0f}
+
+=== MONTHLY BREAKDOWN ===
+"""
+            
+            for i, month in enumerate(months[1:], 1):
+                export_content += f"Month {month}: {monthly_unlocks[i-1]:,.0f} unlocked, {circulating_supply[month]:,.0f} circulating, ${token_price[month]:.7f} price\n"
+            
+            st.download_button(
+                label="📄 Download Vesting Report",
+                data=export_content,
+                file_name=f"vcoin_vesting_analysis_{timestamp}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+def security_stress_test_interface():
+    """Security and Economic Stress Testing"""
+    
+    st.header("🛡️ Security & Economic Stress Testing")
+    st.markdown("**Test economic resilience against attacks, market crashes, and extreme scenarios**")
+    
+    # Stress test parameters
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("🎯 Base Economic State")
+        
+        healthy_daily_users = st.number_input("Healthy Daily Users", 
+                                            min_value=1_000, max_value=10_000_000, value=100_000, step=10_000,
+                                            help="💡 Normal operating user count")
+        
+        healthy_daily_revenue = st.number_input("Healthy Daily Revenue ($)", 
+                                               min_value=1_000, max_value=1_000_000, value=50_000, step=5_000,
+                                               help="💡 Normal daily platform revenue")
+        
+        healthy_token_price = st.number_input("Healthy Token Price ($)", 
+                                            min_value=0.0000001, max_value=10.0, value=0.10, step=0.0000001,
+                                            help="💡 Normal token price", format="%.7f")
+        
+        circulating_supply = st.number_input("Circulating Supply", 
+                                           min_value=1_000_000, max_value=10_000_000_000, value=1_000_000_000, step=1_000_000,
+                                           help="💡 Current circulating token supply")
+        
+        st.subheader("⚡ Attack Scenarios")
+        
+        sybil_attack_scale = st.slider("Sybil Attack Scale", 
+                                     min_value=1, max_value=10, value=3, step=1,
+                                     help="💡 Scale of fake account creation (1=small, 10=massive)")
+        
+        whale_dump_percentage = st.slider("Whale Dump Size (%)", 
+                                        min_value=1, max_value=50, value=15, step=1,
+                                        help="💡 Percentage of circulating supply dumped by whale")
+        
+        spam_attack_multiplier = st.slider("Spam Attack Intensity", 
+                                         min_value=1, max_value=20, value=5, step=1,
+                                         help="💡 Multiplier of normal transaction volume")
+        
+        governance_attack_tokens = st.slider("Governance Attack Tokens (%)", 
+                                           min_value=5, max_value=60, value=25, step=5,
+                                           help="💡 Percentage of voting tokens controlled by attacker")
+    
+    with col2:
+        st.subheader("📉 Market Stress Scenarios")
+        
+        bear_market_duration = st.slider("Bear Market Duration (months)", 
+                                        min_value=3, max_value=24, value=12, step=3,
+                                        help="💡 Length of sustained market downturn")
+        
+        market_crash_severity = st.slider("Market Crash Severity (%)", 
+                                        min_value=30, max_value=95, value=70, step=5,
+                                        help="💡 Percentage price drop during crash")
+        
+        user_exodus_rate = st.slider("User Exodus Rate (%)", 
+                                    min_value=10, max_value=80, value=40, step=5,
+                                    help="💡 Percentage of users leaving during crisis")
+        
+        revenue_decline_rate = st.slider("Revenue Decline Rate (%)", 
+                                       min_value=20, max_value=90, value=60, step=5,
+                                       help="💡 Revenue drop during stress period")
+        
+        st.subheader("🛡️ Defense Mechanisms")
+        
+        slashing_enabled = st.checkbox("Enable Slashing", value=True,
+                                      help="💡 Penalize malicious behavior by destroying tokens")
+        
+        slashing_percentage = st.slider("Slashing Rate (%)", 
+                                       min_value=1, max_value=100, value=30, step=5,
+                                       help="💡 Percentage of tokens slashed for bad behavior")
+        
+        emergency_pause = st.checkbox("Emergency Pause Available", value=True,
+                                     help="💡 Ability to pause certain functions during attacks")
+        
+        reputation_system = st.checkbox("Reputation System Active", value=True,
+                                       help="💡 Track user reputation to limit new account abuse")
+        
+        minimum_stake_required = st.number_input("Minimum Stake to Participate", 
+                                                min_value=0, max_value=10000, value=100, step=50,
+                                                help="💡 Minimum tokens required to participate in rewards")
+    
+    # Execute stress tests
+    if st.button("🛡️ Run Stress Tests", type="primary", key="stress_test"):
+        
+        # Calculate baseline metrics
+        baseline_market_cap = healthy_daily_users * healthy_token_price * circulating_supply / healthy_daily_users
+        baseline_tvl = healthy_daily_revenue * 365 * 5  # 5x revenue multiple
+        
+        # Stress test results
+        st.markdown("---")
+        st.header("🛡️ Stress Test Results")
+        
+        # Attack resistance analysis
+        st.subheader("⚡ Attack Resistance Analysis")
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            st.markdown("**🎯 Sybil Attack Resistance**")
+            sybil_cost = sybil_attack_scale * minimum_stake_required * healthy_token_price
+            sybil_resistance = "High" if minimum_stake_required > 50 and reputation_system else "Medium" if minimum_stake_required > 10 else "Low"
+            st.metric("Attack Cost", f"${sybil_cost:,.0f}")
+            st.metric("Resistance Level", sybil_resistance)
+            
+            if reputation_system:
+                st.write("✅ Reputation system active")
+            if minimum_stake_required > 50:
+                st.write("✅ High stake requirement")
+        
+        with col2:
+            st.markdown("**🐋 Whale Dump Impact**")
+            dump_tokens = circulating_supply * (whale_dump_percentage / 100)
+            price_impact = whale_dump_percentage * 1.5  # Assume 1.5x price impact
+            new_price = healthy_token_price * (1 - price_impact / 100)
+            recovery_time = whale_dump_percentage / 2  # Rough estimate in days
+            
+            st.metric("Tokens Dumped", f"{dump_tokens:,.0f}")
+            st.metric("Price Impact", f"-{price_impact:.1f}%")
+            st.metric("New Price", f"${new_price:.7f}")
+            st.metric("Recovery Time", f"~{recovery_time:.0f} days")
+        
+        with col3:
+            st.markdown("**🏛️ Governance Attack**")
+            attack_tokens = circulating_supply * (governance_attack_tokens / 100)
+            attack_cost = attack_tokens * healthy_token_price
+            governance_risk = "Critical" if governance_attack_tokens > 50 else "High" if governance_attack_tokens > 30 else "Moderate"
+            
+            st.metric("Attack Tokens", f"{attack_tokens:,.0f}")
+            st.metric("Attack Cost", f"${attack_cost:,.0f}")
+            st.metric("Risk Level", governance_risk)
+        
+        # Market stress analysis
+        st.subheader("📉 Market Stress Analysis")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**🐻 Bear Market Impact**")
+            
+            # Calculate progressive decline
+            months = list(range(bear_market_duration + 1))
+            user_decline = [healthy_daily_users * (1 - user_exodus_rate/100 * month/bear_market_duration) for month in months]
+            revenue_decline = [healthy_daily_revenue * (1 - revenue_decline_rate/100 * month/bear_market_duration) for month in months]
+            price_decline = [healthy_token_price * (1 - market_crash_severity/100 * month/bear_market_duration) for month in months]
+            
+            st.metric("Final Users", f"{user_decline[-1]:,.0f}")
+            st.metric("Final Revenue", f"${revenue_decline[-1]:,.0f}")
+            st.metric("Final Price", f"${price_decline[-1]:.7f}")
+            
+            # Recovery analysis
+            recovery_months = bear_market_duration * 1.5
+            st.metric("Est. Recovery Time", f"{recovery_months:.0f} months")
+        
+        with col2:
+            st.markdown("**🛡️ Defense Effectiveness**")
+            
+            defense_score = 0
+            if slashing_enabled:
+                defense_score += 25
+                st.write("✅ Slashing mechanism active")
+            if emergency_pause:
+                defense_score += 20
+                st.write("✅ Emergency pause available")
+            if reputation_system:
+                defense_score += 25
+                st.write("✅ Reputation system active")
+            if minimum_stake_required > 50:
+                defense_score += 30
+                st.write("✅ High minimum stake")
+            
+            st.metric("Defense Score", f"{defense_score}/100")
+            
+            if defense_score >= 80:
+                st.success("🛡️ Strong defense mechanisms")
+            elif defense_score >= 60:
+                st.warning("⚠️ Moderate defense mechanisms")
+            else:
+                st.error("❌ Weak defense mechanisms")
+        
+        # Economic resilience chart
+        st.subheader("📊 Economic Resilience Over Time")
+        
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=('User Base Stress Test', 'Revenue Stress Test', 'Token Price Stress Test', 'Recovery Projection'),
+            specs=[[{"secondary_y": False}, {"secondary_y": False}],
+                   [{"secondary_y": False}, {"secondary_y": False}]]
+        )
+        
+        fig.add_trace(go.Scatter(x=months, y=user_decline, name="Users", line=dict(color='blue')), row=1, col=1)
+        fig.add_trace(go.Scatter(x=months, y=revenue_decline, name="Revenue", line=dict(color='green')), row=1, col=2)
+        fig.add_trace(go.Scatter(x=months, y=price_decline, name="Price", line=dict(color='red')), row=2, col=1)
+        
+        # Recovery projection
+        recovery_months_list = list(range(bear_market_duration, bear_market_duration + int(recovery_months)))
+        recovery_multiplier = [(month - bear_market_duration) / recovery_months for month in recovery_months_list]
+        price_recovery = [price_decline[-1] + (healthy_token_price - price_decline[-1]) * mult for mult in recovery_multiplier]
+        
+        fig.add_trace(go.Scatter(x=recovery_months_list, y=price_recovery, name="Price Recovery", 
+                               line=dict(color='orange', dash='dash')), row=2, col=2)
+        
+        fig.update_layout(height=600, title_text="Economic Stress Test Results")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Export functionality
+        if st.button("📄 Export Stress Test Report", key="export_stress_test"):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            export_content = f"""VCOIN SECURITY & STRESS TEST REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== BASELINE METRICS ===
+Healthy Daily Users: {healthy_daily_users:,}
+Healthy Daily Revenue: ${healthy_daily_revenue:,}
+Healthy Token Price: ${healthy_token_price:.7f}
+Circulating Supply: {circulating_supply:,} VCOIN
+
+=== ATTACK SCENARIOS ===
+Sybil Attack:
+- Scale: {sybil_attack_scale}/10
+- Estimated Cost: ${sybil_cost:,.0f}
+- Resistance Level: {sybil_resistance}
+
+Whale Dump Attack:
+- Dump Size: {whale_dump_percentage}% ({dump_tokens:,.0f} tokens)
+- Price Impact: -{price_impact:.1f}%
+- New Price: ${new_price:.7f}
+- Recovery Time: ~{recovery_time:.0f} days
+
+Governance Attack:
+- Attack Tokens: {governance_attack_tokens}% ({attack_tokens:,.0f} tokens)
+- Attack Cost: ${attack_cost:,.0f}
+- Risk Level: {governance_risk}
+
+=== MARKET STRESS TEST ===
+Bear Market Duration: {bear_market_duration} months
+Market Crash Severity: {market_crash_severity}%
+User Exodus Rate: {user_exodus_rate}%
+Revenue Decline Rate: {revenue_decline_rate}%
+
+Final Impact:
+- Users: {user_decline[-1]:,.0f} ({((user_decline[-1]/healthy_daily_users)-1)*100:+.1f}%)
+- Revenue: ${revenue_decline[-1]:,.0f} ({((revenue_decline[-1]/healthy_daily_revenue)-1)*100:+.1f}%)
+- Price: ${price_decline[-1]:.7f} ({((price_decline[-1]/healthy_token_price)-1)*100:+.1f}%)
+
+=== DEFENSE MECHANISMS ===
+Slashing Enabled: {'Yes' if slashing_enabled else 'No'}
+Slashing Rate: {slashing_percentage}%
+Emergency Pause: {'Available' if emergency_pause else 'Not Available'}
+Reputation System: {'Active' if reputation_system else 'Inactive'}
+Minimum Stake: {minimum_stake_required} VCOIN
+Defense Score: {defense_score}/100
+
+=== RESILIENCE ASSESSMENT ===
+Attack Resistance: {sybil_resistance}
+Market Stress Tolerance: {'High' if defense_score >= 80 else 'Medium' if defense_score >= 60 else 'Low'}
+Recovery Time: {recovery_months:.0f} months
+Overall Risk Level: {'Low' if defense_score >= 80 and sybil_resistance == 'High' else 'Medium' if defense_score >= 60 else 'High'}
+
+=== RECOMMENDATIONS ===
+"""
+            
+            if defense_score < 60:
+                export_content += "- Strengthen defense mechanisms (slashing, reputation system)\n"
+            if minimum_stake_required < 50:
+                export_content += "- Increase minimum stake requirements\n"
+            if governance_attack_tokens > 30:
+                export_content += "- Implement governance safeguards against centralization\n"
+            if whale_dump_percentage > 20:
+                export_content += "- Consider anti-whale mechanisms or gradual unlock schedules\n"
+            
+            st.download_button(
+                label="📄 Download Stress Test Report",
+                data=export_content,
+                file_name=f"vcoin_stress_test_{timestamp}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+def parameter_testing_interface():
+    """Enhanced parameter testing interface with realistic validation and comprehensive parameters"""
+    
+    st.header("🎛️ Economic Parameter Testing")
+    st.markdown("**Adjust tokenomics parameters and run comprehensive economic simulations**")
+    
+    # Parameter explanations
+    with st.expander("📚 Parameter Importance & Guidelines"):
+        st.markdown("""
+        ### 🎯 Why These Parameters Matter:
+        
+        **Platform Metrics:**
+        - **Daily Active Users**: Core engagement metric - drives token demand and transaction volume
+        - **Daily Revenue**: Platform sustainability - must cover rewards and operational costs
+        - **User Acquisition Cost**: Essential for growth planning and ROI calculations
+        - **Monthly Churn Rate**: User retention directly impacts long-term token value
+        
+        **Economic Controls:**
+        - **Transaction Fees**: Revenue generation and spam prevention mechanism
+        - **Staking Rewards**: Incentivizes holding, reduces circulating supply
+        - **Commission Burn Rate**: Deflationary pressure to maintain token value
+        - **Inflation Rate**: Controls new token creation and supply expansion
+        
+        **User Behavior:**
+        - **Average Session Duration**: Higher engagement = more earning opportunities
+        - **Content Creation Rate**: Drives creator rewards and platform growth
+        - **Token Velocity**: How fast tokens circulate - affects price stability
+        
+        ### 📊 Realistic Ranges:
+        - **Testing/MVP**: 10-1K DAU, $10-100 daily revenue
+        - **Small Platform**: 1K-10K DAU, $100-1K daily revenue
+        - **Medium Platform**: 10K-100K DAU, $1K-10K daily revenue  
+        - **Large Platform**: 100K+ DAU, $10K+ daily revenue
+        
+        ### 🧪 Testing Tips:
+        - Start with small numbers (10-50 users, $20-50 revenue) to test mechanics
+        - Scale up gradually to see economic behavior at different sizes
+        - Very small numbers help understand per-user economics clearly
+        """)
+    
+    # Create columns for parameter inputs
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("📊 Platform Metrics")
+        
+        # Daily Active Users with flexible validation
+        daily_users = st.number_input("Daily Active Users", 
+                                     min_value=1, max_value=50_000_000, value=10_000, step=1,
+                                     help="💡 Start small (10-100 for testing, 1K-10K for MVP, scale to millions for mature platforms)")
+        
+        # Daily Revenue with flexible validation
+        daily_revenue = st.number_input("Daily Revenue ($)", 
+                                       min_value=1, max_value=5_000_000, value=1_000, step=1,
+                                       help="💡 Should be 2-5x daily token rewards for sustainability (can start as low as $10-50 for testing)")
+        
+        # User Acquisition Cost
+        user_acquisition_cost = st.number_input("User Acquisition Cost ($)", 
+                                               min_value=0.10, max_value=500.0, value=5.0, step=0.50,
+                                               help="💡 Cost to acquire each new user through marketing")
+        
+        # Monthly Churn Rate
+        monthly_churn_rate = st.slider("Monthly Churn Rate (%)", 
+                                      min_value=1, max_value=50, value=15, step=1,
+                                      help="💡 Percentage of users who stop using platform monthly (5-20% is typical)")
+        
+        # Average Session Duration
+        avg_session_minutes = st.number_input("Average Session Duration (minutes)", 
+                                            min_value=1, max_value=180, value=25, step=5,
+                                            help="💡 Longer sessions = more engagement = more rewards earned")
+        
+        st.subheader("🎯 Reward Distribution")
+        creator_share = st.slider("Creator Share (%)", 
+                                 min_value=20, max_value=60, value=40, step=5,
+                                 help="💡 Percentage of daily reward pool for content creators")
+        
+        engagement_share = st.slider("Engagement Share (%)", 
+                                    min_value=20, max_value=60, value=40, step=5,
+                                    help="💡 Rewards for likes, shares, comments, and consumption")
+        
+        commission_share = st.slider("Commission Share (%)", 
+                                    min_value=5, max_value=20, value=10, step=1,
+                                    help="💡 Platform fee - should cover operational costs")
+        
+        # Calculate royalty share (remaining percentage)
+        royalty_share = 100 - creator_share - engagement_share - commission_share
+        if royalty_share < 0:
+            st.error("⚠️ Total shares cannot exceed 100%. Please adjust the values.")
+            royalty_share = 0
+        else:
+            st.info(f"**Royalty Share (auto-calculated): {royalty_share}%** - NFT trading and content ownership")
+    
+    with col2:
+        st.subheader("💰 Economic Controls")
+        
+        # Transaction Fees
+        transaction_fee_percent = st.slider("Transaction Fee (%)", 
+                                          min_value=0.1, max_value=5.0, value=1.0, step=0.1,
+                                          help="💡 Fee on token transfers - generates revenue and prevents spam")
+        
+        # Staking Rewards
+        staking_apy = st.slider("Staking APY (%)", 
+                               min_value=5, max_value=50, value=15, step=5,
+                               help="💡 Annual percentage yield for staked tokens - incentivizes holding")
+        
+        # Commission Burn Rate
+        commission_burn_rate = st.slider("Commission Burn Rate (%)", 
+                                        min_value=10, max_value=100, value=50, step=10,
+                                        help="💡 Percentage of commission burned - creates deflationary pressure")
+        
+        # Inflation Rate
+        annual_inflation_rate = st.slider("Annual Inflation Rate (%)", 
+                                         min_value=1, max_value=20, value=8, step=1,
+                                         help="💡 New token creation rate - should decrease over time")
+        
+        st.subheader("🪙 Token Supply")
+        initial_supply = st.number_input("Initial Supply (millions)", 
+                                        min_value=100, max_value=5000, value=1000, step=100,
+                                        help="💡 Starting token supply at launch") * 1_000_000
+        
+        max_supply = st.number_input("Max Supply (millions)", 
+                                    min_value=1000, max_value=50000, value=10000, step=1000,
+                                    help="💡 Maximum tokens that will ever exist") * 1_000_000
+        
+        st.subheader("👥 User Behavior")
+        
+        # Content Creation Rate
+        content_creation_rate = st.slider("Daily Content Creation Rate (%)", 
+                                         min_value=1, max_value=20, value=5, step=1,
+                                         help="💡 Percentage of DAU who create content daily")
+        
+        # Token Velocity
+        token_velocity = st.slider("Token Velocity (annual)", 
+                                  min_value=2, max_value=50, value=12, step=2,
+                                  help="💡 How many times tokens change hands per year (lower = more holding)")
+        
+        st.subheader("🎮 Simulation Settings")
+        simulation_months = st.selectbox("Simulation Period (months)", 
+                                       [1, 3, 6, 12, 24], index=2,
+                                       help="💡 How many months to simulate the economy")
+        
+        scenario_type = st.selectbox("Growth Scenario", 
+                                   ["Conservative", "Moderate", "Aggressive"],
+                                   help="💡 User and revenue growth trajectory")
+    
+    # Execute buttons
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        execute_simulation = st.button("🚀 Execute Simulation", type="primary", use_container_width=True, key="simulation_execute")
+    
+    with col2:
+        export_results = st.button("📄 Export Results", use_container_width=True, key="simulation_export")
+    
+    with col3:
+        reset_defaults = st.button("🔄 Reset to Defaults", use_container_width=True, key="simulation_reset")
+    
+    # Reset functionality
+    if reset_defaults:
+        st.rerun()
+    
+    # Smart validation warnings (only for realistic scale platforms)
+    if daily_users > 1000 and daily_revenue < (daily_users * 0.01):
+        st.warning("⚠️ Daily revenue seems low compared to user base. Consider increasing revenue or decreasing users.")
+    
+    if daily_users > 100 and user_acquisition_cost > (daily_revenue / daily_users * 30):
+        st.warning("⚠️ User acquisition cost is high compared to revenue per user. This may impact profitability.")
+    
+    # Helpful guidance for small numbers
+    if daily_users < 100:
+        st.info("💡 **Testing Mode**: Small user numbers are great for testing tokenomics mechanics!")
+    
+    if daily_revenue < 100:
+        st.info("💡 **Early Stage**: Low revenue is normal for MVP testing and early-stage platforms.")
+    
+    # Main simulation execution
+    if execute_simulation or 'simulation_executed' not in st.session_state:
+        st.session_state.simulation_executed = True
+        
+        # Collect all parameters
+        params = {
+            'initial_supply': initial_supply,
+            'max_supply': max_supply,
+            'creator_share': creator_share / 100,  # Convert to decimal
+            'engagement_share': engagement_share / 100,
+            'commission_share': commission_share / 100,
+            'royalty_share': royalty_share / 100,
+            'commission_burn_rate': commission_burn_rate / 100,
+            'transaction_fee_percent': transaction_fee_percent / 100,
+            'staking_apy': staking_apy / 100,
+            'annual_inflation_rate': annual_inflation_rate / 100,
+            'monthly_churn_rate': monthly_churn_rate / 100,
+            'content_creation_rate': content_creation_rate / 100,
+            'daily_revenue': daily_revenue,
+            'daily_users': daily_users,
+            'user_acquisition_cost': user_acquisition_cost,
+            'avg_session_minutes': avg_session_minutes,
+            'token_velocity': token_velocity,
+            'initial_price': 0.10  # Will be calculated based on revenue
+        }
+        
+        # Convert months to days for simulation
+        simulation_days = simulation_months * 30
+        
+        # Run simulation
+        with st.spinner(f"🔄 Running {simulation_months}-month economic simulation..."):
+            results = run_enhanced_parameter_simulation(params, simulation_days, scenario_type)
+        
+        # Store results for export
+        st.session_state.parameter_test_results = {
+            'input_parameters': params,
+            'simulation_settings': {
+                'simulation_months': simulation_months,
+                'simulation_days': simulation_days,
+                'scenario_type': scenario_type
+            },
+            'simulation_results': results
+        }
+        
+        # Display results
+        display_enhanced_simulation_results(results, params, simulation_months)
+    
+    # Export functionality
+    if export_results and 'parameter_test_results' in st.session_state:
+        results_data = st.session_state.parameter_test_results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Calculate summary statistics
+        final_result = results_data['simulation_results'][-1] if results_data['simulation_results'] else {}
+        
+        export_content = f"""VCOIN ENHANCED ECONOMIC PARAMETER TESTING REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== INPUT PARAMETERS ===
+Platform Metrics:
+- Daily Active Users: {results_data['input_parameters']['daily_users']:,}
+- Daily Revenue: ${results_data['input_parameters']['daily_revenue']:,}
+- User Acquisition Cost: ${results_data['input_parameters']['user_acquisition_cost']:.2f}
+- Monthly Churn Rate: {results_data['input_parameters']['monthly_churn_rate']:.1%}
+- Average Session Duration: {results_data['input_parameters']['avg_session_minutes']:.0f} minutes
+
+Reward Distribution:
+- Creator Share: {results_data['input_parameters']['creator_share']:.1%}
+- Engagement Share: {results_data['input_parameters']['engagement_share']:.1%}
+- Commission Share: {results_data['input_parameters']['commission_share']:.1%}
+- Royalty Share: {results_data['input_parameters']['royalty_share']:.1%}
+
+Economic Controls:
+- Transaction Fee: {results_data['input_parameters']['transaction_fee_percent']:.1%}
+- Staking APY: {results_data['input_parameters']['staking_apy']:.1%}
+- Commission Burn Rate: {results_data['input_parameters']['commission_burn_rate']:.1%}
+- Annual Inflation Rate: {results_data['input_parameters']['annual_inflation_rate']:.1%}
+
+User Behavior:
+- Content Creation Rate: {results_data['input_parameters']['content_creation_rate']:.1%}
+- Token Velocity: {results_data['input_parameters']['token_velocity']:.1f}x annually
+
+Token Supply:
+- Initial Supply: {results_data['input_parameters']['initial_supply']:,} VCOIN
+- Max Supply: {results_data['input_parameters']['max_supply']:,} VCOIN
+
+Simulation Settings:
+- Simulation Period: {results_data['simulation_settings']['simulation_months']} months ({results_data['simulation_settings']['simulation_days']} days)
+- Growth Scenario: {results_data['simulation_settings']['scenario_type']}
+
+=== SIMULATION RESULTS ===
+Final Month Metrics:
+- Token Supply: {final_result.get('current_supply', 0):,.0f} VCOIN
+- Token Price: ${final_result.get('token_price', 0):.7f}
+- Market Cap: ${final_result.get('market_cap', 0):,.0f}
+- Daily Active Users: {final_result.get('daily_users', 0):,}
+- Daily Rewards Distributed: {final_result.get('total_rewards', 0):,.0f} VCOIN
+- Daily Tokens Burned: {final_result.get('total_burned', 0):,.0f} VCOIN
+- Economic Health Score: {final_result.get('health_score', 0):.1f}/100
+
+Creator Economics:
+- Daily Creator Rewards: {final_result.get('creator_rewards', 0):,.0f} VCOIN
+- Average Creator Earnings: ${final_result.get('avg_creator_earnings', 0):,.2f}/day
+- Total Creator Pool Value: ${final_result.get('creator_pool_value', 0):,.0f}
+
+User Economics:
+- Daily Engagement Rewards: {final_result.get('engagement_rewards', 0):,.0f} VCOIN
+- Average User Earnings: ${final_result.get('avg_user_earnings', 0):.2f}/day
+- User Retention Rate: {final_result.get('user_retention_rate', 0):.1%}
+
+Platform Economics:
+- Daily Commission: {final_result.get('commission_rewards', 0):,.0f} VCOIN
+- Daily Transaction Fees: ${final_result.get('transaction_fees', 0):,.0f}
+- Platform Revenue: ${final_result.get('platform_revenue', 0):,.0f}/day
+- User Acquisition ROI: {final_result.get('acquisition_roi', 0):.1f}x
+
+Token Economics:
+- Current Inflation Rate: {final_result.get('current_inflation_rate', 0):.2%}
+- Actual Token Velocity: {final_result.get('actual_token_velocity', 0):.1f}
+- Daily Burn Rate: {final_result.get('daily_burn_rate', 0):.2%}
+- Staked Token Percentage: {final_result.get('staked_percentage', 0):.1%}
+
+=== ECONOMIC ANALYSIS ===
+Sustainability Metrics:
+- Revenue/Cost Ratio: {final_result.get('revenue_cost_ratio', 0):.2f}
+- Token Price Stability: {final_result.get('price_stability', 0):.1f}%
+- Platform Profitability: {final_result.get('profitability', 'Unknown')}
+
+Growth Trajectory:
+- Monthly User Growth: {final_result.get('monthly_user_growth', 0):.1%}
+- Monthly Revenue Growth: {final_result.get('monthly_revenue_growth', 0):.1%}
+- Token Supply Growth: {final_result.get('supply_growth_rate', 0):.2%}
+
+Risk Assessment:
+- Inflation Risk: {final_result.get('inflation_risk', 'Low')}
+- User Churn Risk: {final_result.get('churn_risk', 'Medium')}
+- Economic Sustainability: {final_result.get('sustainability_risk', 'Good')}
+
+Key Performance Indicators:
+- Platform Health Score: {final_result.get('platform_health', 0):.1f}/100
+- Token Economy Score: {final_result.get('token_economy_score', 0):.1f}/100
+- User Satisfaction Index: {final_result.get('user_satisfaction', 0):.1f}/100
+"""
+        
+        st.download_button(
+            label="📄 Download Parameter Test Report",
+            data=export_content,
+            file_name=f"vcoin_parameter_test_{timestamp}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+def run_parameter_simulation(params: Dict[str, Any], days: int, scenario: str) -> List[Dict[str, Any]]:
+    """Run economic simulation with given parameters"""
+    
+    # Initialize economic engine
+    engine = VCoinEconomicEngine(params)
+    
+    # Define scenario parameters
+    scenario_configs = {
+        "Conservative": {
+            'max_users': params['daily_users'] * 5,
+            'growth_rate': 0.005,
+            'base_daily_revenue': params['daily_revenue'],
+            'content_creation_rate': 0.03
+        },
+        "Moderate": {
+            'max_users': params['daily_users'] * 10,
+            'growth_rate': 0.008,
+            'base_daily_revenue': params['daily_revenue'],
+            'content_creation_rate': 0.05
+        },
+        "Aggressive": {
+            'max_users': params['daily_users'] * 20,
+            'growth_rate': 0.015,
+            'base_daily_revenue': params['daily_revenue'],
+            'content_creation_rate': 0.08
+        }
+    }
+    
+    scenario_params = scenario_configs[scenario]
+    
+    # Run simulation
+    results = engine.run_simulation(scenario_params, days)
+    
+    return results
+
+def display_simulation_results(results: List[Dict[str, Any]], params: Dict[str, Any]):
+    """Display simulation results with charts and metrics"""
+    
+    if not results:
+        st.error("No simulation results to display")
+        return
+    
+    # Convert to DataFrame for analysis
+    df = pd.DataFrame(results)
+    
+    # Key metrics display
+    st.subheader("📊 Simulation Results")
+    
+    # Top-level metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        final_price = df['current_price'].iloc[-1]
+        initial_price = df['current_price'].iloc[0]
+        price_change = (final_price / initial_price) - 1
+        st.metric(
+            "Final Token Price", 
+            f"${final_price:.7f}",
+            f"{price_change:.1%}"
+        )
+    
+    with col2:
+        final_supply = df['total_supply'].iloc[-1]
+        initial_supply = df['total_supply'].iloc[0]
+        supply_change = (final_supply / initial_supply) - 1
+        st.metric(
+            "Total Supply", 
+            f"{final_supply:,.0f}",
+            f"{supply_change:.1%}"
+        )
+    
+    with col3:
+        avg_daily_rewards = df['daily_rewards'].mean()
+        st.metric("Avg Daily Rewards", f"{avg_daily_rewards:,.0f} VCOIN")
+    
+    with col4:
+        avg_daily_burns = df['daily_burns'].mean()
+        st.metric("Avg Daily Burns", f"{avg_daily_burns:,.0f} VCOIN")
+    
+    # Economic health indicators
+    st.subheader("🏥 Economic Health")
+    
+    col5, col6, col7, col8 = st.columns(4)
+    
+    with col5:
+        avg_inflation = df['inflation_rate'].mean()
+        inflation_color = "normal" if -0.05 <= avg_inflation <= 0.15 else "inverse"
+        st.metric("Avg Inflation Rate", f"{avg_inflation:.1%}", delta_color=inflation_color)
+    
+    with col6:
+        avg_velocity = df['token_velocity'].mean()
+        velocity_color = "normal" if 1.5 <= avg_velocity <= 3.0 else "inverse"
+        st.metric("Token Velocity", f"{avg_velocity:.2f}", delta_color=velocity_color)
+    
+    with col7:
+        total_creator_rewards = df['daily_rewards'].sum() * params['creator_share']
+        avg_creator_daily = total_creator_rewards / len(df) / (df['content_count'].mean() / df['active_users'].mean() * 0.05)
+        st.metric("Avg Creator Daily Earnings", f"{avg_creator_daily:.0f} VCOIN")
+    
+    with col8:
+        burn_efficiency = df['daily_burns'].sum() / df['daily_rewards'].sum()
+        efficiency_color = "normal" if burn_efficiency > 0.3 else "inverse"
+        st.metric("Burn Efficiency", f"{burn_efficiency:.1%}", delta_color=efficiency_color)
+    
+    # Charts
+    create_economic_charts(df)
+    
+    # Detailed breakdown
+    with st.expander("📋 Detailed Economic Breakdown"):
+        display_detailed_breakdown(df, params)
+    
+    # Export functionality
+    if st.button("💾 Export Simulation Data"):
+        export_simulation_data(df, params)
+
+def create_economic_charts(df: pd.DataFrame):
+    """Create comprehensive economic visualization charts"""
+    
+    # Chart 1: Token Price and Supply Over Time
+    fig1 = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=('VCOIN Price Over Time', 'Token Supply Over Time'),
+        vertical_spacing=0.1
+    )
+    
+    # Price chart
+    fig1.add_trace(
+        go.Scatter(
+            x=df['day'], 
+            y=df['current_price'], 
+            name='VCOIN Price ($)', 
+            line=dict(color='#1f77b4', width=3)
+        ),
+        row=1, col=1
+    )
+    
+    # Supply chart
+    fig1.add_trace(
+        go.Scatter(
+            x=df['day'], 
+            y=df['total_supply'], 
+            name='Total Supply', 
+            line=dict(color='#2ca02c', width=3)
+        ),
+        row=2, col=1
+    )
+    
+    fig1.update_layout(
+        height=600, 
+        title_text="📈 Token Economics Over Time",
+        showlegend=False
+    )
+    fig1.update_xaxes(title_text="Day", row=2, col=1)
+    fig1.update_yaxes(title_text="Price ($)", row=1, col=1)
+    fig1.update_yaxes(title_text="Supply (VCOIN)", row=2, col=1)
+    
+    st.plotly_chart(fig1, use_container_width=True)
+    
+    # Chart 2: Daily Token Flows
+    fig2 = go.Figure()
+    
+    fig2.add_trace(go.Scatter(
+        x=df['day'], 
+        y=df['daily_rewards'], 
+        name='Daily Rewards', 
+        line=dict(color='#ff7f0e', width=2),
+        fill='tonexty'
+    ))
+    
+    fig2.add_trace(go.Scatter(
+        x=df['day'], 
+        y=df['daily_burns'], 
+        name='Daily Burns', 
+        line=dict(color='#d62728', width=2),
+        fill='tozeroy'
+    ))
+    
+    # Add net flow
+    df['net_flow'] = df['daily_rewards'] - df['daily_burns']
+    fig2.add_trace(go.Scatter(
+        x=df['day'],
+        y=df['net_flow'],
+        name='Net Flow',
+        line=dict(color='#9467bd', width=3, dash='dash')
+    ))
+    
+    fig2.update_layout(
+        title="🔄 Daily Token Flows: Rewards vs Burns",
+        xaxis_title="Day",
+        yaxis_title="VCOIN",
+        height=400,
+        hovermode='x unified'
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+    
+    # Chart 3: Economic Health Dashboard
+    fig3 = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Inflation Rate (%)', 'Token Velocity', 'User Growth', 'Revenue Growth'),
+        vertical_spacing=0.15,
+        horizontal_spacing=0.1
+    )
+    
+    # Inflation rate
+    fig3.add_trace(
+        go.Scatter(x=df['day'], y=df['inflation_rate']*100, name='Inflation %', line=dict(color='red')),
+        row=1, col=1
+    )
+    
+    # Token velocity
+    fig3.add_trace(
+        go.Scatter(x=df['day'], y=df['token_velocity'], name='Velocity', line=dict(color='blue')),
+        row=1, col=2
+    )
+    
+    # User growth
+    fig3.add_trace(
+        go.Scatter(x=df['day'], y=df['active_users'], name='Users', line=dict(color='green')),
+        row=2, col=1
+    )
+    
+    # Revenue growth
+    fig3.add_trace(
+        go.Scatter(x=df['day'], y=df['daily_revenue'], name='Revenue', line=dict(color='orange')),
+        row=2, col=2
+    )
+    
+    fig3.update_layout(height=600, title_text="📊 Economic Health Dashboard", showlegend=False)
+    st.plotly_chart(fig3, use_container_width=True)
+
+def price_discovery_interface():
+    """Cold start price discovery tool"""
+    
+    st.header("💰 VCOIN Cold Start Price Discovery")
+    st.markdown("Calculate fair initial token price using multiple valuation methods")
+    
+    # Input form
+    with st.form("price_discovery_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📊 Platform Projections")
+            expected_dau = st.number_input("Expected Daily Active Users", 1_000, 10_000_000, 100_000)
+            expected_revenue = st.number_input("Expected Daily Revenue ($)", 1_000, 1_000_000, 50_000)
+            expected_creators = st.number_input("Expected Daily Creators", 100, 100_000, 5_000)
+            
+        with col2:
+            st.subheader("💸 Development Costs")
+            dev_cost = st.number_input("Development Cost ($)", 500_000, 10_000_000, 2_000_000)
+            annual_operating = st.number_input("Annual Operating Cost ($)", 1_000_000, 20_000_000, 5_000_000)
+            marketing_budget = st.number_input("Annual Marketing Budget ($)", 100_000, 10_000_000, 2_000_000)
+        
+        # Token supply
+        st.subheader("🪙 Token Supply")
+        col3, col4 = st.columns(2)
+        with col3:
+            initial_supply = st.number_input("Initial Supply", 500_000_000, 2_000_000_000, 1_000_000_000)
+        with col4:
+            max_supply = st.number_input("Max Supply", 5_000_000_000, 20_000_000_000, 10_000_000_000)
+        
+        submitted = st.form_submit_button("💡 Calculate Initial Price", type="primary")
+    
+    if submitted:
+        # Prepare metrics for valuation
+        platform_metrics = {
+            'daily_active_users': expected_dau,
+            'daily_revenue': expected_revenue,
+            'daily_creators': expected_creators,
+            'initial_supply': initial_supply,
+            'max_supply': max_supply,
+            'development_cost': dev_cost,
+            'annual_operating_cost': annual_operating,
+            'marketing_budget': marketing_budget
+        }
+        
+        # Calculate valuation
+        valuator = VCoinColdStartValuation()
+        valuation_result = valuator.calculate_initial_price(platform_metrics)
+        
+        # Display results
+        st.success("✅ Price Discovery Complete")
+        
+        # Main recommendation
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric(
+                "🎯 Recommended Price", 
+                f"${valuation_result['recommended_price']:.4f}"
+            )
+        
+        with col2:
+            low_range = valuation_result['confidence_range'][0]
+            st.metric("📉 Conservative Price", f"${low_range:.4f}")
+        
+        with col3:
+            high_range = valuation_result['confidence_range'][1]
+            st.metric("📈 Optimistic Price", f"${high_range:.4f}")
+        
+        # Valuation method breakdown
+        st.subheader("🔍 Valuation Method Breakdown")
+        
+        method_data = []
+        for method, price in valuation_result['individual_valuations'].items():
+            weight = valuation_result['valuation_weights'][method]
+            contribution = price * weight
+            
+            method_data.append({
+                'Method': method.replace('_', ' ').title(),
+                'Price': f"${price:.4f}",
+                'Weight': f"{weight:.0%}",
+                'Contribution': f"${contribution:.4f}",
+                'Rationale': get_method_rationale(method)
+            })
+        
+        method_df = pd.DataFrame(method_data)
+        st.table(method_df)
+        
+        # Price sensitivity analysis
+        st.subheader("📊 Price Sensitivity Analysis")
+        
+        sensitivity_data = []
+        for factor in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]:
+            adjusted_metrics = platform_metrics.copy()
+            adjusted_metrics['daily_revenue'] *= factor
+            adjusted_metrics['daily_active_users'] = int(adjusted_metrics['daily_active_users'] * factor)
+            
+            adjusted_valuation = valuator.calculate_initial_price(adjusted_metrics)
+            
+            sensitivity_data.append({
+                'Revenue Multiple': f"{factor}x",
+                'Recommended Price': f"${adjusted_valuation['recommended_price']:.4f}",
+                'Price Change': f"{((adjusted_valuation['recommended_price'] / valuation_result['recommended_price']) - 1):.1%}"
+            })
+        
+        sensitivity_df = pd.DataFrame(sensitivity_data)
+        st.table(sensitivity_df)
+
+def content_calculator_interface():
+    """Individual content reward calculator"""
+    
+    st.header("🎬 Individual Content Reward Calculator")
+    st.markdown("Calculate VCOIN rewards for specific content pieces")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("📝 Content Details")
+        
+        content_type = st.selectbox(
+            "Content Type", 
+            ['podcast', 'long_video', 'short_video', 'text_post'],
+            format_func=lambda x: {
+                'podcast': '🎙️ Podcast',
+                'long_video': '📹 Long Video', 
+                'short_video': '📱 Short Video',
+                'text_post': '📝 Text Post'
+            }[x]
+        )
+        
+        view_count = st.number_input("View Count", 10, 1_000_000, 1000)
+        
+        if content_type in ['podcast', 'long_video']:
+            duration = st.number_input("Duration (minutes)", 1, 180, 30)
+        elif content_type == 'short_video':
+            duration = st.number_input("Duration (seconds)", 15, 300, 60) / 60
+        else:
+            duration = 0
+        
+        st.subheader("👥 Engagement Metrics")
+        
+        # Auto-calculate reasonable engagement based on views
+        default_engagement_rate = 0.1  # 10% engagement rate
+        total_engagement = int(view_count * default_engagement_rate)
+        
+        shares = st.number_input("Shares", 0, view_count//2, max(1, int(total_engagement * 0.15)))
+        reports = st.number_input("Reports", 0, view_count//10, max(0, int(total_engagement * 0.03)))
+        likes = st.number_input("Likes", 0, view_count, max(1, int(total_engagement * 0.65)))
+        dislikes = st.number_input("Dislikes", 0, view_count//5, max(0, int(total_engagement * 0.07)))
+        comments = st.number_input("Comments", 0, view_count//3, max(1, int(total_engagement * 0.20)))
+        
+        st.subheader("⭐ Quality Scores")
+        creator_5a = st.slider("Creator 5A Score", 100, 500, 300, help="Authority, Accuracy, Authenticity, Audience, Amplification")
+        accuracy = st.slider("Content Accuracy %", 0, 100, 80, help="Community-verified accuracy rating")
+        engagement_quality = st.slider("Engagement Quality", 0, 100, 70, help="Quality of user interactions")
+    
+    with col2:
+        st.subheader("💰 Reward Calculation")
+        
+        if st.button("🧮 Calculate Rewards", type="primary"):
+            
+            # Create content metrics object
+            content_metrics = ContentMetrics(
+                content_type=content_type,
+                view_count=view_count,
+                shares=shares,
+                reports=reports,
+                likes=likes,
+                dislikes=dislikes,
+                comments=comments,
+                creator_5a_score=creator_5a,
+                accuracy_rating=accuracy,
+                engagement_quality=engagement_quality,
+                duration_minutes=duration
+            )
+            
+            # Initialize engine with default parameters
+            engine_params = {
+                'daily_revenue': 50000,
+                'daily_users': 100000,
+                'initial_price': 0.10
+            }
+            engine = VCoinEconomicEngine(engine_params)
+            
+            # Calculate rewards
+            reward_result = engine.calculate_content_reward(content_metrics)
+            
+            # Display total reward
+            st.success("✅ Reward Calculation Complete")
+            
+            total_vcoin = reward_result['total_reward']
+            total_usd = total_vcoin * 0.10  # At $0.10 per VCOIN
+            
+            st.metric("💎 Total Content Reward", f"{total_vcoin:,.0f} VCOIN", f"${total_usd:,.2f}")
+            
+            # Distribution breakdown
+            st.subheader("💸 Reward Distribution")
+            
+            distribution_data = {
+                'Recipient': [
+                    '👤 Creator',
+                    '🔄 Sharers', 
+                    '📢 Reporters',
+                    '👍 Likers',
+                    '👎 Dislikers', 
+                    '💬 Commenters',
+                    '🏢 ViWo Commission',
+                    '🎨 NFT Royalty Pool'
+                ],
+                'VCOIN Amount': [
+                    f"{reward_result['creator_reward']:,.0f}",
+                    f"{reward_result['share_reward_pool']:,.0f}",
+                    f"{reward_result['report_reward_pool']:,.0f}",
+                    f"{reward_result['like_reward_pool']:,.0f}",
+                    f"{reward_result['dislike_reward_pool']:,.0f}",
+                    f"{reward_result['comment_reward_pool']:,.0f}",
+                    f"{reward_result['platform_commission']:,.0f}",
+                    f"{reward_result['nft_royalty_pool']:,.0f}"
+                ],
+                'USD Value': [
+                    f"${reward_result['creator_reward'] * 0.10:,.2f}",
+                    f"${reward_result['share_reward_pool'] * 0.10:,.2f}",
+                    f"${reward_result['report_reward_pool'] * 0.10:,.2f}",
+                    f"${reward_result['like_reward_pool'] * 0.10:,.2f}",
+                    f"${reward_result['dislike_reward_pool'] * 0.10:,.2f}",
+                    f"${reward_result['comment_reward_pool'] * 0.10:,.2f}",
+                    f"${reward_result['platform_commission'] * 0.10:,.2f}",
+                    f"${reward_result['nft_royalty_pool'] * 0.10:,.2f}"
+                ],
+                'Percentage': [
+                    f"{(reward_result['creator_reward']/total_vcoin)*100:.1f}%",
+                    f"{(reward_result['share_reward_pool']/total_vcoin)*100:.1f}%",
+                    f"{(reward_result['report_reward_pool']/total_vcoin)*100:.1f}%",
+                    f"{(reward_result['like_reward_pool']/total_vcoin)*100:.1f}%",
+                    f"{(reward_result['dislike_reward_pool']/total_vcoin)*100:.1f}%",
+                    f"{(reward_result['comment_reward_pool']/total_vcoin)*100:.1f}%",
+                    f"{(reward_result['platform_commission']/total_vcoin)*100:.1f}%",
+                    f"{(reward_result['nft_royalty_pool']/total_vcoin)*100:.1f}%"
+                ]
+            }
+            
+            dist_df = pd.DataFrame(distribution_data)
+            st.table(dist_df)
+            
+            # Individual user rewards
+            if shares + reports + likes + dislikes + comments > 0:
+                st.subheader("👤 Individual User Rewards")
+                
+                individual_data = {
+                    'Action': ['🔄 Share', '📢 Report', '👍 Like', '👎 Dislike', '💬 Comment'],
+                    'Count': [shares, reports, likes, dislikes, comments],
+                    'Reward per Action': [
+                        f"{reward_result['share_per_action']:,.3f} VCOIN" if shares > 0 else "0 VCOIN",
+                        f"{reward_result['report_per_action']:,.3f} VCOIN" if reports > 0 else "0 VCOIN",
+                        f"{reward_result['like_per_action']:,.3f} VCOIN" if likes > 0 else "0 VCOIN",
+                        f"{reward_result['dislike_per_action']:,.3f} VCOIN" if dislikes > 0 else "0 VCOIN",
+                        f"{reward_result['comment_per_action']:,.3f} VCOIN" if comments > 0 else "0 VCOIN"
+                    ],
+                    'USD per Action': [
+                        f"${reward_result['share_per_action'] * 0.10:,.3f}" if shares > 0 else "$0.000",
+                        f"${reward_result['report_per_action'] * 0.10:,.3f}" if reports > 0 else "$0.000",
+                        f"${reward_result['like_per_action'] * 0.10:,.3f}" if likes > 0 else "$0.000",
+                        f"${reward_result['dislike_per_action'] * 0.10:,.3f}" if dislikes > 0 else "$0.000",
+                        f"${reward_result['comment_per_action'] * 0.10:,.3f}" if comments > 0 else "$0.000"
+                    ]
+                }
+                
+                individual_df = pd.DataFrame(individual_data)
+                st.table(individual_df)
+                
+                # Quality impact analysis
+                st.subheader("📈 Quality Impact Analysis")
+                
+                quality_factors = {
+                    'Base Content Multiplier': engine.content_multipliers[content_type],
+                    'Creator 5A Multiplier': f"{engine._calculate_quality_multiplier(content_metrics):.2f}x",
+                    'Accuracy Bonus': f"{((accuracy/100) * 0.20 + 1):.2f}x",
+                    'Final Quality Multiplier': f"{engine._calculate_quality_multiplier(content_metrics):.2f}x"
+                }
+                
+                for factor, value in quality_factors.items():
+                    st.write(f"**{factor}:** {value}")
+
+def ab_comparison_interface():
+    """A/B testing interface for comparing parameter sets"""
+    
+    st.header("⚔️ A/B Parameter Comparison")
+    st.markdown("Compare two different parameter configurations side-by-side")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📊 Scenario A")
+        params_a = create_parameter_inputs("a", "Current Setup")
+        
+    with col2:
+        st.subheader("📊 Scenario B") 
+        params_b = create_parameter_inputs("b", "Alternative Setup")
+    
+    if st.button("⚔️ Compare Scenarios", type="primary"):
+        
+        with st.spinner("🔄 Running A/B comparison..."):
+            # Run both simulations
+            results_a = run_quick_simulation(params_a, 90)  # 90-day simulation
+            results_b = run_quick_simulation(params_b, 90)
+            
+            # Calculate comparison metrics
+            comparison = compare_simulation_results(results_a, results_b)
+        
+        st.success("✅ A/B Comparison Complete")
+        
+        # Display comparison table
+        st.subheader("📋 Scenario Comparison")
+        
+        comparison_data = {
+            'Metric': [
+                '💰 Final Token Price',
+                '📈 Price Appreciation',
+                '📊 Supply Growth', 
+                '👤 Avg Creator Earnings',
+                '🏢 Platform Revenue',
+                '❤️ Economic Health Score'
+            ],
+            'Scenario A': [
+                f"${comparison['scenario_a']['final_price']:.4f}",
+                f"{comparison['scenario_a']['price_appreciation']:.1%}",
+                f"{comparison['scenario_a']['supply_growth']:.1%}",
+                f"${comparison['scenario_a']['avg_creator_earnings']:,.0f}",
+                f"${comparison['scenario_a']['platform_revenue']:,.0f}",
+                f"{comparison['scenario_a']['health_score']:.0f}/100"
+            ],
+            'Scenario B': [
+                f"${comparison['scenario_b']['final_price']:.4f}",
+                f"{comparison['scenario_b']['price_appreciation']:.1%}",
+                f"{comparison['scenario_b']['supply_growth']:.1%}",
+                f"${comparison['scenario_b']['avg_creator_earnings']:,.0f}",
+                f"${comparison['scenario_b']['platform_revenue']:,.0f}",
+                f"{comparison['scenario_b']['health_score']:.0f}/100"
+            ],
+            'Winner': comparison['winners']
+        }
+        
+        comp_df = pd.DataFrame(comparison_data)
+        st.table(comp_df)
+        
+        # Overall recommendation
+        overall_winner = "A" if comparison['scenario_a']['health_score'] > comparison['scenario_b']['health_score'] else "B"
+        
+        if comparison['scenario_a']['health_score'] == comparison['scenario_b']['health_score']:
+            st.info("🤝 **Both scenarios show similar performance**")
+        else:
+            st.success(f"🏆 **Scenario {overall_winner}** shows better overall economic performance")
+        
+        # Detailed analysis
+        with st.expander("🔍 Detailed Analysis"):
+            st.write("**Key Differences:**")
+            
+            for metric, winner in zip(comparison_data['Metric'], comparison['winners']):
+                if winner not in ['Tie', '🤝']:
+                    st.write(f"• {metric}: **Scenario {winner}** performs better")
+
+def create_parameter_inputs(suffix: str, label: str) -> Dict[str, Any]:
+    """Create parameter input widgets with unique keys"""
+    
+    st.write(f"**{label}**")
+    
+    # Default values (different for A and B)
+    defaults_a = {
+        'creator_share': 0.40,
+        'commission_share': 0.10,
+        'burn_rate': 0.50,
+        'quality_mult': 20.0,
+        'daily_revenue': 50000,
+        'daily_users': 100000
+    }
+    
+    defaults_b = {
+        'creator_share': 0.45,
+        'commission_share': 0.08,
+        'burn_rate': 0.70,
+        'quality_mult': 25.0,
+        'daily_revenue': 75000,
+        'daily_users': 150000
+    }
+    
+    defaults = defaults_a if suffix == 'a' else defaults_b
+    
+    return {
+        'creator_share': st.slider(
+            "Creator Share", 0.20, 0.60, defaults['creator_share'], 0.05, key=f"creator_{suffix}"
+        ),
+        'commission_share': st.slider(
+            "Commission Share", 0.05, 0.20, defaults['commission_share'], 0.01, key=f"commission_{suffix}"
+        ),
+        'commission_burn_rate': st.slider(
+            "Commission Burn Rate", 0.1, 1.0, defaults['burn_rate'], 0.1, key=f"burn_{suffix}"
+        ),
+        'max_quality_multiplier': st.slider(
+            "Max Quality Multiplier", 5.0, 30.0, defaults['quality_mult'], 1.0, key=f"quality_{suffix}"
+        ),
+        'daily_revenue': st.number_input(
+            "Daily Revenue ($)", 10000, 500000, defaults['daily_revenue'], 5000, key=f"revenue_{suffix}"
+        ),
+        'daily_users': st.number_input(
+            "Daily Users", 10000, 1000000, defaults['daily_users'], 10000, key=f"users_{suffix}"
+        )
+    }
+
+def run_quick_simulation(params: Dict[str, Any], days: int = 90) -> Dict[str, Any]:
+    """Run quick simulation for A/B testing"""
+    
+    # Initialize engine
+    engine_params = {
+        'creator_share': params['creator_share'],
+        'commission_share': params['commission_share'],
+        'commission_burn_rate': params['commission_burn_rate'],
+        'max_quality_multiplier': params['max_quality_multiplier'],
+        'daily_revenue': params['daily_revenue'],
+        'daily_users': params['daily_users'],
+        'initial_price': 0.10
+    }
+    
+    engine = VCoinEconomicEngine(engine_params)
+    
+    # Run simulation
+    scenario_params = {
+        'max_users': params['daily_users'] * 10,
+        'growth_rate': 0.008,
+        'base_daily_revenue': params['daily_revenue'],
+        'content_creation_rate': 0.05
+    }
+    
+    results = engine.run_simulation(scenario_params, days)
+    
+    # Calculate summary metrics
+    df = pd.DataFrame(results)
+    
+    return {
+        'final_price': df['current_price'].iloc[-1],
+        'initial_price': df['current_price'].iloc[0],
+        'price_appreciation': (df['current_price'].iloc[-1] / df['current_price'].iloc[0]) - 1,
+        'supply_growth': (df['total_supply'].iloc[-1] / df['total_supply'].iloc[0]) - 1,
+        'avg_creator_earnings': df['daily_rewards'].mean() * params['creator_share'],
+        'platform_revenue': df['daily_rewards'].sum() * params['commission_share'],
+        'health_score': calculate_economic_health_score(df),
+        'avg_inflation': df['inflation_rate'].mean(),
+        'avg_velocity': df['token_velocity'].mean()
+    }
+
+def compare_simulation_results(results_a: Dict[str, Any], results_b: Dict[str, Any]) -> Dict[str, Any]:
+    """Compare results from two simulation scenarios"""
+    
+    # Determine winners for each metric
+    winners = []
+    
+    metrics_higher_better = ['final_price', 'price_appreciation', 'avg_creator_earnings', 'platform_revenue', 'health_score']
+    metrics_lower_better = ['supply_growth', 'avg_inflation']
+    
+    comparison_metrics = [
+        'final_price', 'price_appreciation', 'supply_growth', 
+        'avg_creator_earnings', 'platform_revenue', 'health_score'
+    ]
+    
+    for metric in comparison_metrics:
+        val_a = results_a[metric]
+        val_b = results_b[metric]
+        
+        if abs(val_a - val_b) < 0.001:  # Essentially equal
+            winners.append('🤝')
+        elif metric in metrics_higher_better:
+            winners.append('A' if val_a > val_b else 'B')
+        elif metric in metrics_lower_better:
+            winners.append('A' if val_a < val_b else 'B')
+        else:
+            winners.append('🤝')
+    
+    return {
+        'scenario_a': results_a,
+        'scenario_b': results_b,
+        'winners': winners
+    }
+
+def calculate_economic_health_score(df: pd.DataFrame) -> float:
+    """Calculate overall economic health score (0-100)"""
+    
+    # Price stability (25 points)
+    price_volatility = df['current_price'].std() / df['current_price'].mean()
+    price_score = max(0, 25 - (price_volatility * 100))
+    
+    # Supply management (25 points)
+    avg_inflation = df['inflation_rate'].mean()
+    supply_score = max(0, 25 - abs(avg_inflation - 0.10) * 250)  # Target 10% inflation
+    
+    # Token velocity (25 points)
+    avg_velocity = df['token_velocity'].mean()
+    velocity_score = max(0, 25 - abs(avg_velocity - 2.5) * 10)  # Target 2.5 velocity
+    
+    # Burn efficiency (25 points)
+    burn_efficiency = df['daily_burns'].sum() / df['daily_rewards'].sum()
+    efficiency_score = min(25, burn_efficiency * 50)
+    
+    total_score = price_score + supply_score + velocity_score + efficiency_score
+    
+    return min(100, max(0, total_score))
+
+def display_detailed_breakdown(df: pd.DataFrame, params: Dict[str, Any]):
+    """Display detailed economic breakdown"""
+    
+    st.subheader("📋 Economic Summary")
+    
+    # Calculate key statistics
+    total_rewards_distributed = df['daily_rewards'].sum()
+    total_burns_executed = df['daily_burns'].sum()
+    net_token_change = total_rewards_distributed - total_burns_executed
+    
+    summary_data = {
+        'Metric': [
+            'Total Rewards Distributed',
+            'Total Tokens Burned', 
+            'Net Token Supply Change',
+            'Average Daily Inflation',
+            'Final Token Velocity',
+            'Creator Total Earnings',
+            'Platform Total Commission',
+            'Economic Health Score'
+        ],
+        'Value': [
+            f"{total_rewards_distributed:,.0f} VCOIN",
+            f"{total_burns_executed:,.0f} VCOIN",
+            f"{net_token_change:,.0f} VCOIN",
+            f"{df['inflation_rate'].mean():.2%}",
+            f"{df['token_velocity'].iloc[-1]:.2f}",
+            f"{total_rewards_distributed * params['creator_share']:,.0f} VCOIN",
+            f"{total_rewards_distributed * params['commission_share']:,.0f} VCOIN",
+            f"{calculate_economic_health_score(df):.0f}/100"
+        ],
+        'USD Equivalent': [
+            f"${total_rewards_distributed * df['current_price'].mean():,.0f}",
+            f"${total_burns_executed * df['current_price'].mean():,.0f}",
+            f"${net_token_change * df['current_price'].mean():,.0f}",
+            "-",
+            "-",
+            f"${total_rewards_distributed * params['creator_share'] * df['current_price'].mean():,.0f}",
+            f"${total_rewards_distributed * params['commission_share'] * df['current_price'].mean():,.0f}",
+            "-"
+        ]
+    }
+    
+    summary_df = pd.DataFrame(summary_data)
+    st.table(summary_df)
+
+def export_simulation_data(df: pd.DataFrame, params: Dict[str, Any]):
+    """Export simulation data for external analysis"""
+    
+    # Prepare export data
+    export_data = {
+        'simulation_metadata': {
+            'timestamp': datetime.now().isoformat(),
+            'parameters': params,
+            'simulation_days': len(df),
+            'final_metrics': {
+                'final_price': df['current_price'].iloc[-1],
+                'final_supply': df['total_supply'].iloc[-1],
+                'total_rewards': df['daily_rewards'].sum(),
+                'total_burns': df['daily_burns'].sum()
+            }
+        },
+        'daily_data': df.to_dict('records')
+    }
+    
+    # Convert to JSON
+    json_data = json.dumps(export_data, indent=2)
+    
+    # Download button
+    st.download_button(
+        label="📁 Download Simulation Data (JSON)",
+        data=json_data,
+        file_name=f"vcoin_simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+        mime="application/json"
+    )
+    
+    # CSV download
+    csv_data = df.to_csv(index=False)
+    st.download_button(
+        label="📊 Download CSV Data",
+        data=csv_data,
+        file_name=f"vcoin_simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mime="text/csv"
+    )
+    
+    st.success("📥 Simulation data ready for download!")
+
+def get_method_rationale(method: str) -> str:
+    """Get rationale for each valuation method"""
+    
+    rationales = {
+        'revenue_multiple': 'Based on Web3 platform revenue multiples (15x)',
+        'utility_value': 'Required token velocity for platform operations',
+        'comparable_analysis': 'Similar Web3 social platform token prices',
+        'cost_basis': 'Development and operational cost recovery',
+        'network_value': 'Metcalfe\'s Law network effect valuation'
+    }
+    
+    return rationales.get(method, 'Standard valuation method')
+
+# Sidebar information
+def display_sidebar_info():
+    """Display helpful information in sidebar"""
+    
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("ℹ️ About This Playground")
+    
+    st.sidebar.markdown("""
+    **This playground helps you:**
+    - Test different tokenomics parameters
+    - Calculate initial token price
+    - Simulate economic scenarios
+    - Compare parameter configurations
+    - Export data for analysis
+    
+    **Key Features:**
+    - Real-time parameter adjustment
+    - Multi-method price discovery
+    - Quality-based reward distribution
+    - Economic health monitoring
+    """)
+    
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**💡 Tips:**")
+    st.sidebar.markdown("""
+    - Higher burn rates = deflationary pressure
+    - Quality multipliers reward better content
+    - Accuracy bonuses incentivize truthful content
+    - Monitor economic health score (aim for >70)
+    """)
+
+if __name__ == "__main__":
+    # Initialize session state
+    if 'simulation_run' not in st.session_state:
+        st.session_state.simulation_run = False
+    
+    # Display sidebar info
+    display_sidebar_info()
+    
+    # Run main interface
+    main()

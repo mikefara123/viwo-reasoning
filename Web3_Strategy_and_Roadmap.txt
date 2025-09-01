@@ -1,0 +1,8 @@
+Core values and fail patterns
+This document consolidates the strategic framework for the Web3 Social Media App. It includes fail patterns to avoid, core values to prioritize, scenario comparisons, launch strategy, go-to-market phases, monetization model, investor value propositions, UI/UX principles, and a 12-month roadmap.
+Fail Patterns (to avoid)
+ 1. Building for too many countries simultaneously 2. Targeting too many demographics at once 3. Focusing only on internal value, ignoring external needs 4. Solving no real problem / creating no new value 5. Competing with better existing products without differentiation 6. Attracting little investor interest 7. Long breakeven timeline 8. Lack of clear, transparent monetization plan 9. Poor UX for the target audience 10. Wrong age demographic relative to value proposition 11. No analysis of user behavior 
+Core Values (prioritized)
+ 1. Fair wealth distribution in lower-income countries (highest priority) 2. Decentralization of money and crypto (highest priority) 3. Content production based on 5A principles (high priority) 4. Digital banking integration (medium priority) 5. Ethical ecosystem contributions (tree planting, social programs) (low priority) 
+
+
