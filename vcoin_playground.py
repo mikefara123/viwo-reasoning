@@ -72,6 +72,7 @@ def main():
         "🎛️ Parameter Testing",
         "💰 Price Discovery", 
         "🎬 Content Calculator",
+        "📈 Economy Scale Simulator",
         "⚔️ A/B Comparison"
     ]
     
@@ -139,6 +140,8 @@ def main():
         price_discovery_interface()
     elif selected_tab == "🎬 Content Calculator":
         content_calculator_interface()
+    elif selected_tab == "📈 Economy Scale Simulator":
+        economy_scale_simulator_interface()
     elif selected_tab == "⚔️ A/B Comparison":
         ab_comparison_interface()
     elif selected_tab == "🏦 Token Initial Valuation":
@@ -3425,6 +3428,559 @@ def price_discovery_interface():
         
         sensitivity_df = pd.DataFrame(sensitivity_data)
         st.table(sensitivity_df)
+
+def economy_scale_simulator_interface():
+    """Comprehensive economy analysis across different user scales and engagement scenarios"""
+    
+    st.header("📈 Economy Scale Simulator")
+    st.markdown("**Analyze VCOIN economy across different platform sizes and engagement patterns**")
+    
+    # Platform benchmark selection
+    st.subheader("📱 Platform Reference Model")
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        platform_model = st.selectbox(
+            "Select Platform Benchmark:",
+            ['hybrid_ig_x', 'instagram_like', 'x_twitter_like', 'youtube_like', 'custom'],
+            format_func=lambda x: {
+                'hybrid_ig_x': '🔄 Hybrid (Instagram + X) - Recommended',
+                'instagram_like': '📸 Instagram Model (5-10% engagement)',
+                'x_twitter_like': '🐦 X/Twitter Model (1-3% engagement)', 
+                'youtube_like': '📺 YouTube Model (2-6% engagement)',
+                'custom': '⚙️ Custom Engagement Ratios'
+            }[x],
+            help="💡 Select platform model to determine engagement ratios"
+        )
+    
+    with col2:
+        st.info(f"**Selected Model Ratios:**")
+    
+    # Define platform engagement ratios based on research
+    platform_ratios = {
+        'hybrid_ig_x': {
+            'view_to_like': 0.055,      # Average of IG (7.5%) and X (2.5%) = 5.5%
+            'like_to_comment': 0.065,   # Average of IG (5%) and X (8%) = 6.5%
+            'like_to_share': 0.225,     # Average of IG (7.5%) and X (35%) = 22.5%
+            'base_engagement': 0.045,   # 3-6% range average = 4.5%
+            'description': 'Balanced engagement combining visual and text-based interactions'
+        },
+        'instagram_like': {
+            'view_to_like': 0.075,      # 5-10% average = 7.5%
+            'like_to_comment': 0.035,   # 2-5% average = 3.5%
+            'like_to_share': 0.075,     # 5-10% average = 7.5%
+            'base_engagement': 0.055,   # Higher visual engagement
+            'description': 'High visual engagement, moderate sharing, lower commenting'
+        },
+        'x_twitter_like': {
+            'view_to_like': 0.015,      # 1-2% average = 1.5%
+            'like_to_comment': 0.10,    # ~10%
+            'like_to_share': 0.35,      # 30-40% average = 35%
+            'base_engagement': 0.025,   # Lower overall but high sharing
+            'description': 'Lower engagement but very high sharing/retweet rates'
+        },
+        'youtube_like': {
+            'view_to_like': 0.04,       # 3-5% average = 4%
+            'like_to_comment': 0.0075,  # 0.5-1% average = 0.75%
+            'view_to_comment': 0.003,   # Direct view to comment
+            'base_engagement': 0.04,    # Moderate engagement
+            'description': 'Moderate likes, very low comments, minimal sharing'
+        },
+        'custom': {
+            'view_to_like': 0.05,
+            'like_to_comment': 0.05,
+            'like_to_share': 0.15,
+            'base_engagement': 0.04,
+            'description': 'Custom ratios - adjust manually'
+        }
+    }
+    
+    ratios = platform_ratios[platform_model]
+    
+    # Display selected ratios
+    with col2:
+        st.markdown(f"""
+        **{platform_model.replace('_', ' ').title()} Ratios:**
+        - View → Like: {ratios['view_to_like']:.1%}
+        - Like → Comment: {ratios['like_to_comment']:.1%}
+        - Like → Share: {ratios['like_to_share']:.1%}
+        - Base Engagement: {ratios['base_engagement']:.1%}
+        """)
+    
+    st.info(f"**📊 Platform Logic:** {ratios['description']}")
+    
+    # Economic parameters
+    st.subheader("💰 Economic Parameters")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        revenue_mode = st.radio(
+            "Revenue Model:",
+            ['bootstrap_mode', 'revenue_backed'],
+            format_func=lambda x: {
+                'bootstrap_mode': '🚀 Bootstrap Mode (Token Minting)',
+                'revenue_backed': '💰 Revenue-Backed Mode'
+            }[x]
+        )
+        
+        if revenue_mode == 'revenue_backed':
+            revenue_per_1k_users = st.number_input(
+                "Revenue per 1K Users/Day ($)",
+                min_value=1, max_value=10000, value=500, step=50,
+                help="💡 Daily revenue generated per 1,000 active users"
+            )
+        else:
+            daily_mint_rate = st.slider(
+                "Daily Token Mint Rate (%)",
+                min_value=0.01, max_value=1.0, value=0.1, step=0.01,
+                help="💡 Daily % of total supply minted for rewards"
+            )
+    
+    with col2:
+        vcoin_price = st.number_input(
+            "VCOIN Token Price ($)",
+            min_value=0.0000001, max_value=10.0, value=0.10, step=0.01, format="%.7f",
+            help="💡 Current VCOIN token price for calculations"
+        )
+        
+        total_supply = st.number_input(
+            "Total Token Supply",
+            min_value=1_000_000, max_value=50_000_000_000, value=1_000_000_000, step=1_000_000,
+            help="💡 Total VCOIN supply"
+        )
+    
+    with col3:
+        creator_percentage = st.slider(
+            "Creator Percentage (%)",
+            min_value=1, max_value=10, value=3, step=1,
+            help="💡 % of users who create content daily"
+        )
+        
+        posts_per_creator = st.slider(
+            "Posts per Creator/Day",
+            min_value=1, max_value=10, value=2, step=1,
+            help="💡 Average content pieces per creator daily"
+        )
+    
+    # Growth phases configuration
+    st.subheader("🚀 Growth Phase Analysis")
+    
+    # Define the four phases with user counts
+    phases = [
+        {'name': 'Phase 1: Early Adoption', 'users': 1_000, 'emoji': '🌱'},
+        {'name': 'Phase 2: Growth', 'users': 10_000, 'emoji': '📈'},
+        {'name': 'Phase 3: Scale', 'users': 100_000, 'emoji': '🚀'},
+        {'name': 'Phase 4: Mass Market', 'users': 1_000_000, 'emoji': '🌍'}
+    ]
+    
+    if st.button("🧮 Analyze Economy Across All Phases", type="primary"):
+        
+        results = []
+        
+        for phase in phases:
+            phase_users = phase['users']
+            phase_creators = int(phase_users * (creator_percentage / 100))
+            phase_daily_content = phase_creators * posts_per_creator
+            
+            # Calculate content distribution (popular/normal/low engagement)
+            popular_content = int(phase_daily_content * 0.10)  # 10% popular
+            normal_content = int(phase_daily_content * 0.70)   # 70% normal  
+            low_content = int(phase_daily_content * 0.20)      # 20% low
+            
+            # Calculate engagement metrics for each content type based on phase
+            content_scenarios = []
+            
+            # Popular content engagement
+            if phase_users <= 1_000:
+                popular_views = 550  # 500-600 average
+                popular_likes = int(popular_views * ratios['view_to_like'] * 1.8)  # 80% boost for popular
+                popular_comments = int(popular_likes * ratios['like_to_comment'])
+                popular_shares = int(popular_likes * ratios['like_to_share'])
+            elif phase_users <= 10_000:
+                popular_views = 5_000  # 4K-6K average
+                popular_likes = int(popular_views * ratios['view_to_like'] * 1.8)
+                popular_comments = int(popular_likes * ratios['like_to_comment'])
+                popular_shares = int(popular_likes * ratios['like_to_share'])
+            elif phase_users <= 100_000:
+                popular_views = 50_000  # 40K-60K average
+                popular_likes = int(popular_views * ratios['view_to_like'] * 1.8)
+                popular_comments = int(popular_likes * ratios['like_to_comment'])
+                popular_shares = int(popular_likes * ratios['like_to_share'])
+            else:  # 1M users
+                popular_views = 500_000  # 400K-600K average
+                popular_likes = int(popular_views * ratios['view_to_like'] * 1.8)
+                popular_comments = int(popular_likes * ratios['like_to_comment'])
+                popular_shares = int(popular_likes * ratios['like_to_share'])
+            
+            # Normal content engagement
+            normal_views = int(popular_views * 0.35)  # 35% of popular views
+            normal_likes = int(normal_views * ratios['view_to_like'])
+            normal_comments = int(normal_likes * ratios['like_to_comment'])
+            normal_shares = int(normal_likes * ratios['like_to_share'])
+            
+            # Low engagement content
+            low_views = int(popular_views * 0.15)  # 15% of popular views
+            low_likes = int(low_views * ratios['view_to_like'] * 0.6)  # 40% lower engagement
+            low_comments = int(low_likes * ratios['like_to_comment'])
+            low_shares = int(low_likes * ratios['like_to_share'])
+            
+            content_scenarios = [
+                {'type': 'popular', 'count': popular_content, 'views': popular_views, 'likes': popular_likes, 'comments': popular_comments, 'shares': popular_shares},
+                {'type': 'normal', 'count': normal_content, 'views': normal_views, 'likes': normal_likes, 'comments': normal_comments, 'shares': normal_shares},
+                {'type': 'low', 'count': low_content, 'views': low_views, 'likes': low_likes, 'comments': low_comments, 'shares': low_shares}
+            ]
+            
+            # Calculate total daily metrics for this phase
+            total_daily_views = sum(scenario['count'] * scenario['views'] for scenario in content_scenarios)
+            total_daily_likes = sum(scenario['count'] * scenario['likes'] for scenario in content_scenarios)
+            total_daily_comments = sum(scenario['count'] * scenario['comments'] for scenario in content_scenarios)
+            total_daily_shares = sum(scenario['count'] * scenario['shares'] for scenario in content_scenarios)
+            
+            # Calculate reward pool for this phase
+            if revenue_mode == 'revenue_backed':
+                phase_daily_revenue = (phase_users / 1000) * revenue_per_1k_users
+                reward_pool_usd = phase_daily_revenue * 0.90  # 90% to rewards
+                reward_pool_tokens = reward_pool_usd / vcoin_price
+            else:
+                # Bootstrap mode
+                reward_pool_tokens = total_supply * (daily_mint_rate / 100)
+                reward_pool_usd = reward_pool_tokens * vcoin_price
+            
+            # Calculate per-content rewards (matching Content Calculator logic)
+            base_reward_per_content = reward_pool_tokens / max(1, phase_daily_content)
+            
+            # Apply average multipliers
+            avg_multiplier = 1.2 * 1.5 * 1.3  # Content × Engagement × Quality = 2.34×
+            enhanced_reward_per_content = base_reward_per_content * avg_multiplier
+            
+            # Calculate total rewards and burns
+            total_daily_content_rewards = enhanced_reward_per_content * phase_daily_content
+            
+            # Token burns (simplified)
+            platform_commission = total_daily_content_rewards * 0.10
+            commission_burn = platform_commission * 0.50  # 50% of commission burned
+            
+            # Additional burns based on activity
+            nft_trading_burn = total_daily_content_rewards * 0.02  # 2% for NFT activity
+            promotion_burn = total_daily_content_rewards * 0.01   # 1% for content promotion
+            
+            total_daily_burns = commission_burn + nft_trading_burn + promotion_burn
+            
+            # Net token flow
+            net_daily_flow = reward_pool_tokens - total_daily_burns
+            
+            # Store phase results
+            phase_result = {
+                'phase_name': phase['name'],
+                'emoji': phase['emoji'],
+                'users': phase_users,
+                'creators': phase_creators,
+                'daily_content': phase_daily_content,
+                'content_scenarios': content_scenarios,
+                'total_views': total_daily_views,
+                'total_likes': total_daily_likes,
+                'total_comments': total_daily_comments,
+                'total_shares': total_daily_shares,
+                'engagement_rate': (total_daily_likes + total_daily_comments + total_daily_shares) / max(1, total_daily_views),
+                'daily_revenue': phase_daily_revenue if revenue_mode == 'revenue_backed' else 0,
+                'reward_pool_tokens': reward_pool_tokens,
+                'reward_pool_usd': reward_pool_usd,
+                'base_reward_per_content': base_reward_per_content,
+                'enhanced_reward_per_content': enhanced_reward_per_content,
+                'total_content_rewards': total_daily_content_rewards,
+                'total_burns': total_daily_burns,
+                'net_token_flow': net_daily_flow,
+                'tokens_minted': reward_pool_tokens,
+                'tokens_burned': total_daily_burns,
+                'economy_health': min(100, (enhanced_reward_per_content / 100) * 30 + (phase_users / 10000) * 40 + 30)
+            }
+            
+            results.append(phase_result)
+        
+        # Display comprehensive results
+        st.success("✅ Economy Scale Analysis Complete")
+        
+        # Phase comparison overview
+        st.subheader("🏆 Economy Scale Comparison")
+        
+        # Create comparison table
+        comparison_data = {
+            'Phase': [r['emoji'] + ' ' + r['phase_name'] for r in results],
+            'Users': [f"{r['users']:,}" for r in results],
+            'Daily Content': [f"{r['daily_content']:,}" for r in results],
+            'Per Content Reward': [f"{r['enhanced_reward_per_content']:,.0f} VCOIN" for r in results],
+            'Total Daily Minted': [f"{r['tokens_minted']:,.0f} VCOIN" for r in results],
+            'Total Daily Burned': [f"{r['tokens_burned']:,.0f} VCOIN" for r in results],
+            'Net Flow': [f"{r['net_token_flow']:+,.0f} VCOIN" for r in results],
+            'Economy Health': [f"{r['economy_health']:.0f}/100" for r in results]
+        }
+        
+        comparison_df = pd.DataFrame(comparison_data)
+        st.table(comparison_df)
+        
+        # Detailed phase analysis
+        st.subheader("📊 Detailed Phase Analysis")
+        
+        for i, result in enumerate(results):
+            with st.expander(f"{result['emoji']} {result['phase_name']} - {result['users']:,} Users", expanded=i==0):
+                
+                col1, col2, col3 = st.columns([1, 1, 1])
+                
+                with col1:
+                    st.markdown("**👥 User Metrics:**")
+                    st.write(f"• Active Users: {result['users']:,}")
+                    st.write(f"• Daily Creators: {result['creators']:,} ({creator_percentage}%)")
+                    st.write(f"• Daily Content: {result['daily_content']:,} pieces")
+                    st.write(f"• Posts per Creator: {posts_per_creator}")
+                    
+                    st.markdown("**📈 Engagement Totals:**")
+                    st.write(f"• Total Views: {result['total_views']:,}")
+                    st.write(f"• Total Likes: {result['total_likes']:,}")
+                    st.write(f"• Total Comments: {result['total_comments']:,}")
+                    st.write(f"• Total Shares: {result['total_shares']:,}")
+                    st.write(f"• Overall Engagement: {result['engagement_rate']:.1%}")
+                
+                with col2:
+                    st.markdown("**🪙 Token Economics:**")
+                    st.write(f"• Reward Pool: {result['reward_pool_tokens']:,.0f} VCOIN")
+                    st.write(f"• Pool USD Value: ${result['reward_pool_usd']:,.0f}")
+                    st.write(f"• Base per Content: {result['base_reward_per_content']:,.0f} VCOIN")
+                    st.write(f"• Enhanced per Content: {result['enhanced_reward_per_content']:,.0f} VCOIN")
+                    st.write(f"• Total Content Rewards: {result['total_content_rewards']:,.0f} VCOIN")
+                    
+                    st.markdown("**🔥 Token Flow:**")
+                    st.write(f"• Daily Minted: {result['tokens_minted']:,.0f} VCOIN")
+                    st.write(f"• Daily Burned: {result['tokens_burned']:,.0f} VCOIN")
+                    flow_status = "Inflationary" if result['net_token_flow'] > 0 else "Deflationary"
+                    st.write(f"• Net Flow: {result['net_token_flow']:+,.0f} VCOIN ({flow_status})")
+                
+                with col3:
+                    st.markdown("**🎯 Content Breakdown:**")
+                    for scenario in result['content_scenarios']:
+                        st.write(f"**{scenario['type'].title()} ({scenario['count']} pieces):**")
+                        st.write(f"  - {scenario['views']:,} views")
+                        st.write(f"  - {scenario['likes']:,} likes")
+                        st.write(f"  - {scenario['comments']:,} comments") 
+                        st.write(f"  - {scenario['shares']:,} shares")
+                    
+                    st.markdown("**💡 Economy Health:**")
+                    health_score = result['economy_health']
+                    if health_score >= 80:
+                        st.success(f"🎉 Excellent: {health_score:.0f}/100")
+                    elif health_score >= 60:
+                        st.warning(f"⚠️ Good: {health_score:.0f}/100")
+                    else:
+                        st.error(f"❌ Needs Work: {health_score:.0f}/100")
+        
+        # VCOIN Generation Summary
+        st.markdown("---")
+        st.subheader("💎 VCOIN Generation Summary")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**🪙 Daily VCOIN Generation by Phase:**")
+            for result in results:
+                multiplier = result['users'] / 1000  # Show as multiple of 1K users
+                st.write(f"• **{result['emoji']} {multiplier:,.0f}K Users**: {result['tokens_minted']:,.0f} VCOIN minted")
+        
+        with col2:
+            st.markdown("**🔥 Daily VCOIN Burning by Phase:**")
+            for result in results:
+                multiplier = result['users'] / 1000
+                burn_rate = (result['tokens_burned'] / result['tokens_minted']) * 100 if result['tokens_minted'] > 0 else 0
+                st.write(f"• **{result['emoji']} {multiplier:,.0f}K Users**: {result['tokens_burned']:,.0f} VCOIN burned ({burn_rate:.1f}%)")
+        
+        # Scaling analysis
+        st.markdown("---")
+        st.subheader("📊 Economy Scaling Analysis")
+        
+        # Calculate scaling ratios
+        base_result = results[0]  # 1K users baseline
+        
+        scaling_analysis = []
+        for result in results:
+            user_multiplier = result['users'] / base_result['users']
+            token_multiplier = result['tokens_minted'] / base_result['tokens_minted'] if base_result['tokens_minted'] > 0 else 1
+            content_multiplier = result['daily_content'] / base_result['daily_content']
+            reward_multiplier = result['enhanced_reward_per_content'] / base_result['enhanced_reward_per_content'] if base_result['enhanced_reward_per_content'] > 0 else 1
+            
+            scaling_analysis.append({
+                'phase': result['emoji'] + ' ' + result['phase_name'],
+                'user_scale': f"{user_multiplier:.0f}×",
+                'token_generation_scale': f"{token_multiplier:.1f}×",
+                'content_scale': f"{content_multiplier:.1f}×", 
+                'per_content_reward_scale': f"{reward_multiplier:.2f}×",
+                'economy_efficiency': f"{result['economy_health']:.0f}/100"
+            })
+        
+        scaling_df = pd.DataFrame(scaling_analysis)
+        st.table(scaling_df)
+        
+        # Key insights
+        st.markdown("---")
+        st.subheader("💡 Key Economic Insights")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**🚀 Scaling Patterns:**")
+            
+            # Token generation scaling
+            token_scale_1k_to_10k = results[1]['tokens_minted'] / results[0]['tokens_minted'] if results[0]['tokens_minted'] > 0 else 1
+            token_scale_10k_to_100k = results[2]['tokens_minted'] / results[1]['tokens_minted'] if results[1]['tokens_minted'] > 0 else 1
+            token_scale_100k_to_1m = results[3]['tokens_minted'] / results[2]['tokens_minted'] if results[2]['tokens_minted'] > 0 else 1
+            
+            st.write(f"• **1K → 10K Users**: {token_scale_1k_to_10k:.1f}× token generation")
+            st.write(f"• **10K → 100K Users**: {token_scale_10k_to_100k:.1f}× token generation")
+            st.write(f"• **100K → 1M Users**: {token_scale_100k_to_1m:.1f}× token generation")
+            
+            # Per-content reward evolution
+            reward_1k = results[0]['enhanced_reward_per_content']
+            reward_10k = results[1]['enhanced_reward_per_content']
+            reward_100k = results[2]['enhanced_reward_per_content']
+            reward_1m = results[3]['enhanced_reward_per_content']
+            
+            st.markdown("**💰 Per-Content Rewards:**")
+            st.write(f"• **1K Users**: {reward_1k:,.0f} VCOIN (${reward_1k * vcoin_price:,.2f})")
+            st.write(f"• **10K Users**: {reward_10k:,.0f} VCOIN (${reward_10k * vcoin_price:,.2f})")
+            st.write(f"• **100K Users**: {reward_100k:,.0f} VCOIN (${reward_100k * vcoin_price:,.2f})")
+            st.write(f"• **1M Users**: {reward_1m:,.0f} VCOIN (${reward_1m * vcoin_price:,.2f})")
+        
+        with col2:
+            st.markdown("**⚖️ Economy Health Trends:**")
+            
+            # Show economy health progression
+            for result in results:
+                health = result['economy_health']
+                if health >= 80:
+                    health_status = "🎉 Excellent"
+                elif health >= 60:
+                    health_status = "⚠️ Good"
+                else:
+                    health_status = "❌ Needs Work"
+                
+                st.write(f"• **{result['users']:,} Users**: {health_status} ({health:.0f}/100)")
+            
+            # Net flow analysis
+            st.markdown("**🔄 Token Flow Analysis:**")
+            for result in results:
+                flow_type = "📈 Inflationary" if result['net_token_flow'] > 0 else "📉 Deflationary"
+                flow_rate = abs(result['net_token_flow'] / result['tokens_minted']) * 100 if result['tokens_minted'] > 0 else 0
+                st.write(f"• **{result['users']:,} Users**: {flow_type} ({flow_rate:.1f}%)")
+        
+        # Store results for export
+        st.session_state.economy_scale_results = {
+            'platform_model': platform_model,
+            'revenue_mode': revenue_mode,
+            'vcoin_price': vcoin_price,
+            'parameters': {
+                'revenue_per_1k_users': revenue_per_1k_users if revenue_mode == 'revenue_backed' else 0,
+                'daily_mint_rate': daily_mint_rate if revenue_mode == 'bootstrap_mode' else 0,
+                'creator_percentage': creator_percentage,
+                'posts_per_creator': posts_per_creator,
+                'total_supply': total_supply
+            },
+            'phase_results': results,
+            'scaling_analysis': scaling_analysis
+        }
+    
+    # Export functionality
+    if st.button("📄 Export Economy Scale Analysis", width="stretch"):
+        if 'economy_scale_results' in st.session_state:
+            data = st.session_state.economy_scale_results
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            export_content = f"""VCOIN ECONOMY SCALE SIMULATOR REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+=== ANALYSIS PARAMETERS ===
+Platform Model: {data['platform_model'].replace('_', ' ').title()}
+Revenue Mode: {data['revenue_mode'].replace('_', ' ').title()}
+VCOIN Price: ${data['vcoin_price']:.7f}
+Creator Percentage: {data['parameters']['creator_percentage']}%
+Posts per Creator: {data['parameters']['posts_per_creator']}
+
+=== PLATFORM ENGAGEMENT RATIOS ===
+{platform_ratios[platform_model]['description']}
+- View → Like: {platform_ratios[platform_model]['view_to_like']:.1%}
+- Like → Comment: {platform_ratios[platform_model]['like_to_comment']:.1%}  
+- Like → Share: {platform_ratios[platform_model]['like_to_share']:.1%}
+
+=== PHASE-BY-PHASE ANALYSIS ===
+"""
+            
+            for result in data['phase_results']:
+                export_content += f"""
+{result['emoji']} {result['phase_name'].upper()} - {result['users']:,} USERS:
+
+User Metrics:
+- Active Users: {result['users']:,}
+- Daily Creators: {result['creators']:,}
+- Daily Content: {result['daily_content']:,} pieces
+- Total Daily Views: {result['total_views']:,}
+- Total Daily Likes: {result['total_likes']:,}
+- Total Daily Comments: {result['total_comments']:,}
+- Total Daily Shares: {result['total_shares']:,}
+- Overall Engagement Rate: {result['engagement_rate']:.1%}
+
+Token Economics:
+- Daily Revenue: ${result['daily_revenue']:,.0f}
+- Reward Pool: {result['reward_pool_tokens']:,.0f} VCOIN (${result['reward_pool_usd']:,.0f})
+- Base Reward per Content: {result['base_reward_per_content']:,.0f} VCOIN
+- Enhanced Reward per Content: {result['enhanced_reward_per_content']:,.0f} VCOIN (${result['enhanced_reward_per_content'] * data['vcoin_price']:,.2f})
+- Total Content Rewards: {result['total_content_rewards']:,.0f} VCOIN
+
+Token Flow:
+- Daily Minted: {result['tokens_minted']:,.0f} VCOIN
+- Daily Burned: {result['tokens_burned']:,.0f} VCOIN  
+- Net Flow: {result['net_token_flow']:+,.0f} VCOIN ({'Inflationary' if result['net_token_flow'] > 0 else 'Deflationary'})
+- Economy Health: {result['economy_health']:.0f}/100
+
+Content Distribution:
+"""
+                
+                for scenario in result['content_scenarios']:
+                    export_content += f"""- {scenario['type'].title()}: {scenario['count']} pieces | {scenario['views']:,} views | {scenario['likes']:,} likes | {scenario['comments']:,} comments | {scenario['shares']:,} shares
+"""
+            
+            export_content += f"""
+=== SCALING ANALYSIS SUMMARY ===
+
+VCOIN Generation by User Scale:
+- 1K Users: {results[0]['tokens_minted']:,.0f} VCOIN/day
+- 10K Users: {results[1]['tokens_minted']:,.0f} VCOIN/day ({results[1]['tokens_minted']/results[0]['tokens_minted']:.1f}× increase)
+- 100K Users: {results[2]['tokens_minted']:,.0f} VCOIN/day ({results[2]['tokens_minted']/results[0]['tokens_minted']:.1f}× increase)  
+- 1M Users: {results[3]['tokens_minted']:,.0f} VCOIN/day ({results[3]['tokens_minted']/results[0]['tokens_minted']:.1f}× increase)
+
+Per-Content Reward Evolution:
+- 1K Users: {results[0]['enhanced_reward_per_content']:,.0f} VCOIN per content
+- 10K Users: {results[1]['enhanced_reward_per_content']:,.0f} VCOIN per content
+- 100K Users: {results[2]['enhanced_reward_per_content']:,.0f} VCOIN per content
+- 1M Users: {results[3]['enhanced_reward_per_content']:,.0f} VCOIN per content
+
+Economy Health Progression:
+- 1K Users: {results[0]['economy_health']:.0f}/100
+- 10K Users: {results[1]['economy_health']:.0f}/100  
+- 100K Users: {results[2]['economy_health']:.0f}/100
+- 1M Users: {results[3]['economy_health']:.0f}/100
+
+Key Insights:
+- Token generation scales {results[3]['tokens_minted']/results[0]['tokens_minted']:.0f}× from 1K to 1M users
+- Per-content rewards {'increase' if results[3]['enhanced_reward_per_content'] > results[0]['enhanced_reward_per_content'] else 'decrease'} with scale
+- Economy health {'improves' if results[3]['economy_health'] > results[0]['economy_health'] else 'declines'} at larger scales
+- Platform is {'sustainable' if all(r['net_token_flow'] < r['tokens_minted'] * 0.2 for r in results) else 'needs balancing'} across all phases
+"""
+            
+            st.download_button(
+                label="📄 Download Economy Scale Report",
+                data=export_content,
+                file_name=f"vcoin_economy_scale_analysis_{timestamp}.txt",
+                mime="text/plain",
+                width="stretch"
+            )
+        else:
+            st.warning("⚠️ Please run the analysis first before exporting")
 
 def content_calculator_interface():
     """Individual content reward calculator"""
