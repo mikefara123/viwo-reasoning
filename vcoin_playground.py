@@ -233,13 +233,13 @@ def token_initial_valuation_interface():
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
-        execute_valuation = st.button("🚀 Execute Valuation", type="primary", use_container_width=True, key="valuation_execute")
+        execute_valuation = st.button("🚀 Execute Valuation", type="primary", width="stretch", key="valuation_execute")
     
     with col2:
-        export_results = st.button("📄 Export Results", use_container_width=True, key="valuation_export")
+        export_results = st.button("📄 Export Results", width="stretch", key="valuation_export")
     
     with col3:
-        reset_defaults = st.button("🔄 Reset to Defaults", use_container_width=True, key="valuation_reset")
+        reset_defaults = st.button("🔄 Reset to Defaults", width="stretch", key="valuation_reset")
     
     # Reset functionality
     if reset_defaults:
@@ -522,7 +522,7 @@ Downside Price (-30%): ${results['valuation_results']['weighted_price'] * 0.7:.4
             data=export_content,
             file_name=f"vcoin_valuation_report_{timestamp}.txt",
             mime="text/plain",
-            use_container_width=True
+            width="stretch"
         )
 
 def calculate_dcf_valuation(year1_revenue, growth_rate, discount_rate, terminal_growth, years, take_rate):
@@ -1143,7 +1143,7 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
     fig.add_trace(go.Scatter(x=days, y=[r['total_rewards'] for r in results], name="Daily Rewards", line=dict(color='purple')), row=2, col=2)
     
     fig.update_layout(height=600, showlegend=True, title_text="Economic Simulation Results")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     
     # Economic Health Metrics
     st.subheader("💊 Economic Health Analysis")
@@ -1365,7 +1365,7 @@ Consumer Share: {"Low" if consumer_share_needed < 0.2 else "Adequate"}
                 data=export_content,
                 file_name=f"vcoin_reverse_simulation_{timestamp}.txt",
                 mime="text/plain",
-                use_container_width=True
+                width="stretch"
             )
 
 def cold_start_scenario_interface():
@@ -1664,7 +1664,7 @@ def cold_start_scenario_interface():
         df_display['Creator Earnings ($)'] = df_display['Creator Earnings ($)'].apply(lambda x: f"${x:.2f}")
         df_display['Consumer Earnings ($)'] = df_display['Consumer Earnings ($)'].apply(lambda x: f"${x:.2f}")
         
-        st.dataframe(df_display, use_container_width=True)
+        st.dataframe(df_display, width="stretch")
         
         # Bootstrap Mode Explanation
         if revenue_mode == "Bootstrap Mode (Token-Only)":
@@ -1781,7 +1781,7 @@ Month {result['month']}:
                 data=export_content,
                 file_name=f"vcoin_cold_start_{timestamp}.txt",
                 mime="text/plain",
-                use_container_width=True
+                width="stretch"
             )
 
 def governance_dao_interface():
@@ -1955,7 +1955,7 @@ def governance_dao_interface():
         fig.add_trace(go.Scatter(x=months, y=treasury_balance, mode='lines+markers', 
                                name='Treasury Balance', line=dict(color='green', width=3)))
         fig.update_layout(title="DAO Treasury Growth", xaxis_title="Month", yaxis_title="Treasury Value (USD)")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         # Export functionality
         if st.button("📄 Export Governance Analysis", key="export_governance"):
@@ -2009,7 +2009,7 @@ Monthly Burn Rate: ${monthly_treasury_inflow - monthly_reserve:,.0f}
                 data=export_content,
                 file_name=f"vcoin_governance_analysis_{timestamp}.txt",
                 mime="text/plain",
-                use_container_width=True
+                width="stretch"
             )
 
 def vesting_unlocks_interface():
@@ -2243,7 +2243,7 @@ def vesting_unlocks_interface():
         fig.update_yaxes(title_text="Circulating Supply", row=2, col=1)
         fig.update_yaxes(title_text="Price ($)", secondary_y=True, row=2, col=1)
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         # Allocation breakdown
         st.subheader("🥧 Token Allocation Breakdown")
@@ -2254,7 +2254,7 @@ def vesting_unlocks_interface():
         
         fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.3)])
         fig_pie.update_layout(title="Token Distribution")
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width="stretch")
         
         # Export functionality
         if st.button("📄 Export Vesting Analysis", key="export_vesting"):
@@ -2309,7 +2309,7 @@ Total Unlock Value: ${total_unlock_value:,.0f}
                 data=export_content,
                 file_name=f"vcoin_vesting_analysis_{timestamp}.txt",
                 mime="text/plain",
-                use_container_width=True
+                width="stretch"
             )
 
 def security_stress_test_interface():
@@ -2545,7 +2545,7 @@ def security_stress_test_interface():
                                line=dict(color='orange', dash='dash')), row=2, col=2)
         
         fig.update_layout(height=600, title_text="Economic Stress Test Results")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         # Export functionality
         if st.button("📄 Export Stress Test Report", key="export_stress_test"):
@@ -2619,7 +2619,7 @@ Overall Risk Level: {'Low' if defense_score >= 80 and sybil_resistance == 'High'
                 data=export_content,
                 file_name=f"vcoin_stress_test_{timestamp}.txt",
                 mime="text/plain",
-                use_container_width=True
+                width="stretch"
             )
 
 def parameter_testing_interface():
@@ -2833,13 +2833,13 @@ def parameter_testing_interface():
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
-        execute_simulation = st.button("🚀 Execute Simulation", type="primary", use_container_width=True, key="simulation_execute")
+        execute_simulation = st.button("🚀 Execute Simulation", type="primary", width="stretch", key="simulation_execute")
     
     with col2:
-        export_results = st.button("📄 Export Results", use_container_width=True, key="simulation_export")
+        export_results = st.button("📄 Export Results", width="stretch", key="simulation_export")
     
     with col3:
-        reset_defaults = st.button("🔄 Reset to Defaults", use_container_width=True, key="simulation_reset")
+        reset_defaults = st.button("🔄 Reset to Defaults", width="stretch", key="simulation_reset")
     
     # Reset functionality
     if reset_defaults:
@@ -3085,7 +3085,7 @@ Price Volatility: {abs(final_result.get('total_value_change', 0)):.1f}%
             data=export_content,
             file_name=f"vcoin_parameter_test_{timestamp}.txt",
             mime="text/plain",
-            use_container_width=True
+            width="stretch"
         )
 
 def run_parameter_simulation(params: Dict[str, Any], days: int, scenario: str) -> List[Dict[str, Any]]:
@@ -3244,7 +3244,7 @@ def create_economic_charts(df: pd.DataFrame):
     fig1.update_yaxes(title_text="Price ($)", row=1, col=1)
     fig1.update_yaxes(title_text="Supply (VCOIN)", row=2, col=1)
     
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, width="stretch")
     
     # Chart 2: Daily Token Flows
     fig2 = go.Figure()
@@ -3281,7 +3281,7 @@ def create_economic_charts(df: pd.DataFrame):
         height=400,
         hovermode='x unified'
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
     
     # Chart 3: Economic Health Dashboard
     fig3 = make_subplots(
@@ -3316,7 +3316,7 @@ def create_economic_charts(df: pd.DataFrame):
     )
     
     fig3.update_layout(height=600, title_text="📊 Economic Health Dashboard", showlegend=False)
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width="stretch")
 
 def price_discovery_interface():
     """Cold start price discovery tool"""
@@ -4102,22 +4102,24 @@ def content_calculator_interface():
                     st.markdown(f"""
                     ```
                     Base Pool = ${engine_params['daily_revenue']:,.0f} × {revenue_share_percent/100:.2f} ÷ {engine_params['daily_users']:,.0f} = {base_pool:.4f} VCOIN
-                    Content Multiplier = {content_mult}x ({content_type})
+                    Content Multiplier = {content_mult:.1f}x ({content_type})
                     5A Multiplier = ({creator_5a} ÷ 100) × 2.0 + 0.5 = {quality_mult:.2f}x
                     Accuracy Bonus = ({accuracy} ÷ 100) × 0.20 + 1.0 = {accuracy_bonus:.2f}x
-                    View Multiplier = log10({view_count:,}) ÷ 3.0 = {view_mult:.2f}x""")
+                    View Multiplier = log10({view_count:,}) ÷ 3.0 = {view_mult:.2f}x
+                    ```""")
                 else:
                     st.markdown(f"""
                     ```
                     Base Pool = {total_token_supply:,} × {daily_token_mint_rate/100:.3f} ÷ {engine_params['daily_users']:,.0f} = {base_pool:.2f} VCOIN
-                    Content Multiplier = {content_mult}x ({content_type})
+                    Content Multiplier = {content_mult:.1f}x ({content_type})
                     5A Multiplier = ({creator_5a} ÷ 100) × 2.0 + 0.5 = {quality_mult:.2f}x
                     Accuracy Bonus = ({accuracy} ÷ 100) × 0.20 + 1.0 = {accuracy_bonus:.2f}x
-                    View Multiplier = log10({view_count:,}) ÷ 3.0 = {view_mult:.2f}x""")
+                    View Multiplier = log10({view_count:,}) ÷ 3.0 = {view_mult:.2f}x
+                    ```""")
                 
                 st.markdown(f"""
                 
-                Base Reward = {base_pool:.4f} × {content_mult} × {quality_mult:.2f} × {accuracy_bonus:.2f} × {view_mult:.2f} × {view_count:,}
+                Base Reward = {base_pool:.4f} × {content_mult:.1f} × {quality_mult:.2f} × {accuracy_bonus:.2f} × {view_mult:.2f} × {view_count:,}
                 Base Reward = {total_vcoin_base:,.0f} VCOIN
                 
                 Total Reactions = {likes} + {dislikes} = {total_reactions} (likes and dislikes treated equally)
