@@ -3304,6 +3304,16 @@ def content_calculator_interface():
         
         benchmark = engagement_benchmarks[platform_type]
         
+        # Content-type multipliers based on industry data (define before use)
+        content_multipliers = {
+            'short_video': 1.8,    # Short videos get 80% higher engagement
+            'long_video': 1.2,     # Long videos get 20% higher engagement  
+            'podcast': 0.8,        # Podcasts get 20% lower visual engagement
+            'text_post': 0.6       # Text posts get 40% lower engagement
+        }
+        
+        content_mult = content_multipliers.get(content_type, 1.0)
+        
         # Show benchmark info with content type adjustment
         adjusted_rate = benchmark['base_rate'] * content_mult
         st.info(f"""
@@ -3314,16 +3324,6 @@ def content_calculator_interface():
         - **Expected Engagement**: ~{int(view_count * adjusted_rate):,} total interactions for {view_count:,} views
         - **Source**: Industry benchmarks from Buffer, Hootsuite, Social Insider (2024-2025)
         """)
-        
-        # Content-type multipliers based on industry data
-        content_multipliers = {
-            'short_video': 1.8,    # Short videos get 80% higher engagement
-            'long_video': 1.2,     # Long videos get 20% higher engagement  
-            'podcast': 0.8,        # Podcasts get 20% lower visual engagement
-            'text_post': 0.6       # Text posts get 40% lower engagement
-        }
-        
-        content_mult = content_multipliers.get(content_type, 1.0)
         
         # Calculate engagement defaults based on selected benchmark and content type
         if platform_type != 'custom':
