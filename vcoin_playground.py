@@ -605,8 +605,8 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
     for day in range(days):
         # Monthly growth (every 30 days)
         if day % 30 == 0 and day > 0:
-            # Calculate new users and churn separately
-            new_users_added = current_users * config['user_growth_rate']
+            # Use user-specified acquisition rate instead of scenario-based growth
+            new_users_added = current_users * params['monthly_acquisition_rate']
             users_churned = current_users * params['monthly_churn_rate'] * config['churn_multiplier']
             net_user_change = new_users_added - users_churned
             current_users = max(1, current_users + net_user_change)
@@ -926,15 +926,15 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
                  f"Monthly retention")
     
     with col4:
-        # Show last month's churn data
-        last_month_data = [r for r in results if r['users_churned'] > 0]
-        if last_month_data:
-            last_churn = last_month_data[-1]['users_churned']
-            st.metric("Last Month Churn", f"{last_churn:,.0f} users", 
-                     f"{last_month_data[-1]['monthly_churn_rate']*100:.1f}% rate")
-        else:
-            st.metric("Monthly Churn Rate", f"{params['monthly_churn_rate']*100:.1f}%", 
-                     f"Estimated")
+        # Show acquisition vs churn balance
+        acquisition_rate = params.get('monthly_acquisition_rate', 0) * 100
+        churn_rate = params.get('monthly_churn_rate', 0) * 100
+        net_growth_rate = acquisition_rate - churn_rate
+        
+        growth_color = "normal" if net_growth_rate > 0 else "inverse"
+        st.metric("Net Monthly Growth Rate", f"{net_growth_rate:+.1f}%", 
+                 f"Acquisition: {acquisition_rate:.1f}% | Churn: {churn_rate:.1f}%", 
+                 delta_color=growth_color)
     
     # Platform Health & Economy Scores
     st.markdown("#### 🏥 Platform Health & Economy Scores")
@@ -2553,7 +2553,8 @@ def parameter_testing_interface():
         - **Daily Active Users**: Core engagement metric - drives token demand and transaction volume
         - **Daily Revenue**: Platform sustainability - must cover rewards and operational costs
         - **User Acquisition Cost**: Essential for growth planning and ROI calculations
-        - **Monthly Churn Rate**: User retention directly impacts long-term token value
+        - **Monthly Acquisition Rate**: How many new users you gain each month (% of current base)
+        - **Monthly Churn Rate**: How many users leave each month - impacts retention and token value
         
         **Economic Controls:**
         - **Transaction Fees**: Revenue generation and spam prevention mechanism
@@ -2599,10 +2600,16 @@ def parameter_testing_interface():
                                                min_value=0.10, max_value=500.0, value=5.0, step=0.50,
                                                help="💡 Cost to acquire each new user through marketing")
         
-        # Monthly Churn Rate
+        # User Growth & Churn Parameters
+        st.markdown("**👥 User Growth & Retention:**")
+        
+        monthly_acquisition_rate = st.slider("Monthly User Acquisition Rate (%)", 
+                                            min_value=0, max_value=100, value=20, step=1,
+                                            help="💡 Percentage of current user base acquired as NEW users each month. Example: 20% means if you have 1000 users, you acquire 200 new users monthly")
+        
         monthly_churn_rate = st.slider("Monthly Churn Rate (%)", 
                                       min_value=1, max_value=50, value=15, step=1,
-                                      help="💡 Percentage of users who stop using platform monthly (5-20% is typical)")
+                                      help="💡 Percentage of existing users who LEAVE the platform each month (5-20% is typical for social platforms)")
         
         # Average Session Duration
         avg_session_minutes = st.number_input("Average Session Duration (minutes)", 
@@ -2795,6 +2802,7 @@ def parameter_testing_interface():
             'staking_apy': staking_apy / 100,
             'annual_inflation_rate': annual_inflation_rate / 100,
             'monthly_churn_rate': monthly_churn_rate / 100,
+            'monthly_acquisition_rate': monthly_acquisition_rate / 100,
             'content_creation_rate': content_creation_rate / 100,
             'daily_revenue': daily_revenue,
             'daily_users': daily_users,
@@ -2842,6 +2850,7 @@ Platform Metrics:
 - Daily Active Users: {results_data['input_parameters']['daily_users']:,}
 - Daily Revenue: ${results_data['input_parameters']['daily_revenue']:,}
 - User Acquisition Cost: ${results_data['input_parameters']['user_acquisition_cost']:.2f}
+- Monthly Acquisition Rate: {results_data['input_parameters']['monthly_acquisition_rate']:.1%}
 - Monthly Churn Rate: {results_data['input_parameters']['monthly_churn_rate']:.1%}
 - Average Session Duration: {results_data['input_parameters']['avg_session_minutes']:.0f} minutes
 
