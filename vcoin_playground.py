@@ -593,6 +593,14 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
     # Calculate initial market cap based on starting price
     initial_market_cap = current_supply * current_price
     
+    # Initialize monthly metrics outside the loop
+    monthly_metrics = {
+        'new_users_added': 0,
+        'users_churned': 0,
+        'net_user_change': 0,
+        'churn_rate': 0
+    }
+    
     # Simulate each day
     for day in range(days):
         # Monthly growth (every 30 days)
@@ -672,7 +680,7 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
         
         # Net user growth (accounting for churn)
         if day % 30 == 0 and day > 0:
-            net_monthly_growth = monthly_metrics['net_user_change']
+            net_monthly_growth = monthly_metrics.get('net_user_change', 0)
             monthly_growth_rate = net_monthly_growth / (current_users - net_monthly_growth) if current_users > net_monthly_growth else 0
         else:
             net_monthly_growth = 0
