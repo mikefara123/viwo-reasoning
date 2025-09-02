@@ -59,7 +59,7 @@ def main():
     """Main playground interface with sidebar navigation"""
     
     # Header
-    st.markdown('<h1 class="main-header">🪙 VCOIN Economic Playground</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">🪙 VCOIN Economic Playground v2.1</h1>', unsafe_allow_html=True)
     st.markdown("**Test tokenomics parameters and see real-time economic impact**")
     
     # Sidebar navigation
