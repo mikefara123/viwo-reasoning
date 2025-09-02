@@ -656,6 +656,28 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
         staking_rate = min(0.6, 0.3 + (params['staking_apy'] - 0.05) * 2)  # Higher APY = more staking
         staked_tokens = current_supply * staking_rate
         
+        # Calculate comprehensive tokenomics metrics
+        circulating_for_content = current_supply - staked_tokens  # Tokens available for content rewards
+        circulating_for_trade = circulating_for_content * 0.7  # 70% available for trading
+        circulating_for_nft = circulating_for_content * 0.3   # 30% for NFT/content economy
+        
+        # Calculate cumulative metrics
+        if day == 0:
+            cumulative_minted = daily_inflation
+            cumulative_burned = total_burned
+        else:
+            prev_result = results[-1] if results else {'cumulative_minted': 0, 'cumulative_burned': 0}
+            cumulative_minted = prev_result.get('cumulative_minted', 0) + daily_inflation
+            cumulative_burned = prev_result.get('cumulative_burned', 0) + total_burned
+        
+        # Net user growth (accounting for churn)
+        if day % 30 == 0 and day > 0:
+            net_monthly_growth = monthly_metrics['net_user_change']
+            monthly_growth_rate = net_monthly_growth / (current_users - net_monthly_growth) if current_users > net_monthly_growth else 0
+        else:
+            net_monthly_growth = 0
+            monthly_growth_rate = 0
+        
         # Calculate metrics
         result = {
             'day': day,
@@ -670,10 +692,17 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
             'royalty_rewards': royalty_rewards,
             'total_rewards': creator_rewards + engagement_rewards + commission_rewards + royalty_rewards,
             'total_burned': total_burned,
+            'daily_minted': daily_inflation,
+            'cumulative_minted': cumulative_minted,
+            'cumulative_burned': cumulative_burned,
+            'net_token_flow': daily_inflation - total_burned,
             'transaction_fees': transaction_fees,
             'platform_revenue': current_revenue,
             'staked_tokens': staked_tokens,
             'staked_percentage': (staked_tokens / current_supply) * 100,
+            'circulating_for_content': circulating_for_content,
+            'circulating_for_trade': circulating_for_trade,
+            'circulating_for_nft': circulating_for_nft,
             'current_inflation_rate': (daily_inflation / current_supply) * 365 * 100,
             'actual_token_velocity': params['token_velocity'],
             'daily_burn_rate': (total_burned / current_supply) * 100,
@@ -693,7 +722,17 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
                                      (total_burned / daily_inflation if daily_inflation > 0 else 1) * 30),
             'user_satisfaction': min(100, (params['avg_session_minutes'] / 60) * 30 + 
                                    (current_price / params['initial_price']) * 35 + 
-                                   ((engagement_rewards * current_price) / current_users) * 35)
+                                   ((engagement_rewards * current_price) / current_users) * 35),
+            # New comprehensive metrics
+            'starting_token_value': params['initial_price'],
+            'ending_token_value': current_price,
+            'total_value_change': ((current_price / params['initial_price']) - 1) * 100,
+            'net_monthly_growth': net_monthly_growth,
+            'monthly_growth_rate': monthly_growth_rate,
+            # Monthly metrics (only on month boundaries)
+            'new_users_added': monthly_metrics.get('new_users_added', 0),
+            'users_churned': monthly_metrics.get('users_churned', 0),
+            'monthly_churn_rate': monthly_metrics.get('churn_rate', 0)
         }
         
         results.append(result)
@@ -813,6 +852,169 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
     with col5:
         supply_change = ((final_result['current_supply'] / initial_result['current_supply']) - 1) * 100
         st.metric("Token Supply", f"{final_result['current_supply']:,.0f}", f"{supply_change:+.1f}%")
+    
+    # Comprehensive Tokenomics Analysis
+    st.markdown("---")
+    st.subheader("🏆 Comprehensive Tokenomics Analysis")
+    
+    # Token Supply & Flow Analysis
+    st.markdown("#### 🪙 Token Supply & Flow Analysis")
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    
+    with col1:
+        st.metric("Total Minted Tokens", f"{final_result['cumulative_minted']:,.0f} VCOIN", 
+                 f"During {months}-month period")
+    
+    with col2:
+        st.metric("Total Burned Tokens", f"{final_result['cumulative_burned']:,.0f} VCOIN", 
+                 f"Deflationary pressure")
+    
+    with col3:
+        net_flow = final_result['cumulative_minted'] - final_result['cumulative_burned']
+        flow_type = "Inflationary" if net_flow > 0 else "Deflationary"
+        st.metric("Net Token Flow", f"{net_flow:,.0f} VCOIN", f"{flow_type}")
+    
+    with col4:
+        st.metric("Final Token Supply", f"{final_result['current_supply']:,.0f} VCOIN", 
+                 f"{((final_result['current_supply'] / initial_result['current_supply']) - 1) * 100:+.1f}%")
+    
+    # Token Circulation Breakdown
+    st.markdown("#### 🔄 Token Circulation Breakdown")
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    
+    with col1:
+        st.metric("Staked Tokens", f"{final_result['staked_tokens']:,.0f} VCOIN", 
+                 f"{final_result['staked_percentage']:.1f}% of supply")
+    
+    with col2:
+        st.metric("Available for Content", f"{final_result['circulating_for_content']:,.0f} VCOIN", 
+                 f"Content & NFT rewards")
+    
+    with col3:
+        st.metric("Available for Trade", f"{final_result['circulating_for_trade']:,.0f} VCOIN", 
+                 f"Market liquidity")
+    
+    with col4:
+        st.metric("NFT & Content Pool", f"{final_result['circulating_for_nft']:,.0f} VCOIN", 
+                 f"Creator economy")
+    
+    # User Growth & Retention (Net of Churn)
+    st.markdown("#### 👥 User Growth Analysis (Net of Churn)")
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    
+    with col1:
+        st.metric("Final Active Users", f"{final_result['daily_users']:,.0f}", 
+                 f"{((final_result['daily_users'] / initial_result['daily_users']) - 1) * 100:+.1f}%")
+    
+    with col2:
+        # Calculate average monthly net growth from all monthly data points
+        monthly_data = [r for r in results if r['net_monthly_growth'] != 0]
+        avg_net_growth = sum(r['net_monthly_growth'] for r in monthly_data) / max(1, len(monthly_data)) if monthly_data else 0
+        st.metric("Avg Monthly Net Growth", f"{avg_net_growth:,.0f} users", 
+                 f"After churn deduction")
+    
+    with col3:
+        st.metric("User Retention Rate", f"{final_result['user_retention_rate']:.1f}%", 
+                 f"Monthly retention")
+    
+    with col4:
+        # Show last month's churn data
+        last_month_data = [r for r in results if r['users_churned'] > 0]
+        if last_month_data:
+            last_churn = last_month_data[-1]['users_churned']
+            st.metric("Last Month Churn", f"{last_churn:,.0f} users", 
+                     f"{last_month_data[-1]['monthly_churn_rate']*100:.1f}% rate")
+        else:
+            st.metric("Monthly Churn Rate", f"{params['monthly_churn_rate']*100:.1f}%", 
+                     f"Estimated")
+    
+    # Platform Health & Economy Scores
+    st.markdown("#### 🏥 Platform Health & Economy Scores")
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    
+    with col1:
+        health_color = "normal" if final_result['platform_health'] > 70 else "inverse"
+        st.metric("Platform Health", f"{final_result['platform_health']:.1f}/100", 
+                 delta_color=health_color)
+    
+    with col2:
+        economy_color = "normal" if final_result['token_economy_score'] > 70 else "inverse"
+        st.metric("Economy Score", f"{final_result['token_economy_score']:.1f}/100", 
+                 delta_color=economy_color)
+    
+    with col3:
+        satisfaction_color = "normal" if final_result['user_satisfaction'] > 70 else "inverse"
+        st.metric("User Satisfaction", f"{final_result['user_satisfaction']:.1f}/100", 
+                 delta_color=satisfaction_color)
+    
+    with col4:
+        # Calculate overall economy health (average of all scores)
+        overall_health = (final_result['platform_health'] + final_result['token_economy_score'] + final_result['user_satisfaction']) / 3
+        overall_color = "normal" if overall_health > 70 else "inverse"
+        st.metric("Overall Economy Health", f"{overall_health:.1f}/100", 
+                 delta_color=overall_color)
+    
+    # Economy Working Indicators
+    st.markdown("#### ⚖️ Economy Working Indicators")
+    
+    # Determine if economy is working
+    economy_working_score = 0
+    indicators = []
+    
+    # Token price stability (25 points)
+    price_change_abs = abs(final_result['total_value_change'])
+    if price_change_abs < 20:
+        economy_working_score += 25
+        indicators.append("✅ Token price stable (< 20% change)")
+    elif price_change_abs < 50:
+        economy_working_score += 15
+        indicators.append("⚠️ Token price moderately volatile (20-50% change)")
+    else:
+        indicators.append("❌ Token price highly volatile (> 50% change)")
+    
+    # User growth vs churn (25 points)
+    if final_result['daily_users'] > initial_result['daily_users']:
+        economy_working_score += 25
+        indicators.append("✅ User base growing despite churn")
+    else:
+        indicators.append("❌ User base declining due to churn")
+    
+    # Token supply balance (25 points)
+    burn_mint_ratio = final_result['cumulative_burned'] / max(1, final_result['cumulative_minted'])
+    if 0.7 <= burn_mint_ratio <= 1.3:
+        economy_working_score += 25
+        indicators.append("✅ Healthy burn/mint ratio (0.7-1.3)")
+    elif 0.5 <= burn_mint_ratio <= 1.5:
+        economy_working_score += 15
+        indicators.append("⚠️ Moderate burn/mint ratio (0.5-1.5)")
+    else:
+        indicators.append("❌ Unhealthy burn/mint ratio")
+    
+    # Platform sustainability (25 points)
+    if final_result['revenue_cost_ratio'] > 1.2:
+        economy_working_score += 25
+        indicators.append("✅ Platform profitable (revenue > costs)")
+    elif final_result['revenue_cost_ratio'] > 1.0:
+        economy_working_score += 15
+        indicators.append("⚠️ Platform break-even")
+    else:
+        indicators.append("❌ Platform losing money")
+    
+    # Display economy health verdict
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        if economy_working_score >= 80:
+            st.success(f"🎉 **Economy is WORKING!** ({economy_working_score}/100)")
+        elif economy_working_score >= 60:
+            st.warning(f"⚠️ **Economy is STABLE** ({economy_working_score}/100)")
+        else:
+            st.error(f"❌ **Economy NEEDS WORK** ({economy_working_score}/100)")
+    
+    with col2:
+        st.markdown("**Key Indicators:**")
+        for indicator in indicators:
+            st.markdown(f"- {indicator}")
     
     # Additional metrics row
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -2622,6 +2824,7 @@ def parameter_testing_interface():
         
         # Calculate summary statistics
         final_result = results_data['simulation_results'][-1] if results_data['simulation_results'] else {}
+        initial_result = results_data['simulation_results'][0] if results_data['simulation_results'] else {}
         
         export_content = f"""VCOIN ENHANCED ECONOMIC PARAMETER TESTING REPORT
 Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -2711,6 +2914,66 @@ Key Performance Indicators:
 - Platform Health Score: {final_result.get('platform_health', 0):.1f}/100
 - Token Economy Score: {final_result.get('token_economy_score', 0):.1f}/100
 - User Satisfaction Index: {final_result.get('user_satisfaction', 0):.1f}/100
+
+=== COMPREHENSIVE TOKENOMICS ANALYSIS ===
+
+🪙 TOKEN SUPPLY & FLOW ANALYSIS:
+- Total Minted During Period: {final_result.get('cumulative_minted', 0):,.0f} VCOIN
+- Total Burned During Period: {final_result.get('cumulative_burned', 0):,.0f} VCOIN
+- Net Token Flow: {final_result.get('cumulative_minted', 0) - final_result.get('cumulative_burned', 0):,.0f} VCOIN ({('Inflationary' if (final_result.get('cumulative_minted', 0) - final_result.get('cumulative_burned', 0)) > 0 else 'Deflationary')})
+- Starting Token Supply: {initial_result.get('current_supply', 0):,.0f} VCOIN
+- Final Token Supply: {final_result.get('current_supply', 0):,.0f} VCOIN
+- Supply Change: {((final_result.get('current_supply', 1) / initial_result.get('current_supply', 1)) - 1) * 100:+.1f}%
+
+🔄 TOKEN CIRCULATION BREAKDOWN:
+- Staked Tokens: {final_result.get('staked_tokens', 0):,.0f} VCOIN ({final_result.get('staked_percentage', 0):.1f}% of total supply)
+- Available for Content & NFT: {final_result.get('circulating_for_content', 0):,.0f} VCOIN
+- Available for Trading: {final_result.get('circulating_for_trade', 0):,.0f} VCOIN  
+- NFT & Content Economy Pool: {final_result.get('circulating_for_nft', 0):,.0f} VCOIN
+
+💎 TOKEN VALUE ANALYSIS:
+- Starting Token Price: ${final_result.get('starting_token_value', 0):.7f}
+- Ending Token Price: ${final_result.get('ending_token_value', 0):.7f}
+- Total Value Change: {final_result.get('total_value_change', 0):+.1f}%
+- Starting Market Cap: ${initial_result.get('market_cap', 0):,.0f}
+- Final Market Cap: ${final_result.get('market_cap', 0):,.0f}
+- Market Cap Change: {((final_result.get('market_cap', 1) / initial_result.get('market_cap', 1)) - 1) * 100:+.1f}%
+
+👥 USER GROWTH ANALYSIS (NET OF CHURN):
+- Starting Daily Users: {initial_result.get('daily_users', 0):,.0f}
+- Final Daily Users: {final_result.get('daily_users', 0):,.0f}
+- Net User Change: {final_result.get('daily_users', 0) - initial_result.get('daily_users', 0):+,.0f}
+- User Retention Rate: {final_result.get('user_retention_rate', 0):.1f}%
+- Average Monthly Net Growth: {final_result.get('net_monthly_growth', 0):,.0f} users (after churn)
+- Monthly Churn Rate: {final_result.get('monthly_churn_rate', 0)*100:.1f}%
+
+🏥 PLATFORM HEALTH & ECONOMY SCORES:
+- Platform Health Score: {final_result.get('platform_health', 0):.1f}/100
+- Token Economy Score: {final_result.get('token_economy_score', 0):.1f}/100
+- User Satisfaction Score: {final_result.get('user_satisfaction', 0):.1f}/100
+- Overall Economy Health: {(final_result.get('platform_health', 0) + final_result.get('token_economy_score', 0) + final_result.get('user_satisfaction', 0)) / 3:.1f}/100
+
+💰 DAILY REWARDS ANALYSIS:
+- Daily Reward Tokens: {final_result.get('total_rewards', 0):,.0f} VCOIN
+- Daily Reward USD Value: ${final_result.get('total_rewards', 0) * final_result.get('token_price', 0):,.2f}
+- Average Creator Daily Earnings: ${final_result.get('avg_creator_earnings', 0):.2f} ({final_result.get('avg_creator_earnings', 0) / final_result.get('token_price', 0.01):,.0f} VCOIN)
+- Average User Daily Earnings: ${final_result.get('avg_user_earnings', 0):.4f} ({final_result.get('avg_user_earnings', 0) / final_result.get('token_price', 0.01):.2f} VCOIN)
+- Daily Platform Revenue: ${final_result.get('platform_revenue', 0):,.0f}
+
+⚖️ ECONOMY WORKING INDICATORS:
+Economy Health Score: {((25 if abs(final_result.get('total_value_change', 0)) < 20 else 15 if abs(final_result.get('total_value_change', 0)) < 50 else 0) + (25 if final_result.get('daily_users', 0) > initial_result.get('daily_users', 0) else 0) + (25 if 0.7 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.3 else 15 if 0.5 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.5 else 0) + (25 if final_result.get('revenue_cost_ratio', 0) > 1.2 else 15 if final_result.get('revenue_cost_ratio', 0) > 1.0 else 0))}/100
+
+Economic Status: {('🎉 ECONOMY IS WORKING!' if ((25 if abs(final_result.get('total_value_change', 0)) < 20 else 15 if abs(final_result.get('total_value_change', 0)) < 50 else 0) + (25 if final_result.get('daily_users', 0) > initial_result.get('daily_users', 0) else 0) + (25 if 0.7 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.3 else 15 if 0.5 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.5 else 0) + (25 if final_result.get('revenue_cost_ratio', 0) > 1.2 else 15 if final_result.get('revenue_cost_ratio', 0) > 1.0 else 0)) >= 80 else '⚠️ ECONOMY IS STABLE' if ((25 if abs(final_result.get('total_value_change', 0)) < 20 else 15 if abs(final_result.get('total_value_change', 0)) < 50 else 0) + (25 if final_result.get('daily_users', 0) > initial_result.get('daily_users', 0) else 0) + (25 if 0.7 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.3 else 15 if 0.5 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.5 else 0) + (25 if final_result.get('revenue_cost_ratio', 0) > 1.2 else 15 if final_result.get('revenue_cost_ratio', 0) > 1.0 else 0)) >= 60 else '❌ ECONOMY NEEDS WORK')}
+
+Key Health Indicators:
+- Token Price Stability: {'✅ Stable (< 20% change)' if abs(final_result.get('total_value_change', 0)) < 20 else '⚠️ Moderately Volatile (20-50% change)' if abs(final_result.get('total_value_change', 0)) < 50 else '❌ Highly Volatile (> 50% change)'}
+- User Growth vs Churn: {'✅ User base growing despite churn' if final_result.get('daily_users', 0) > initial_result.get('daily_users', 0) else '❌ User base declining due to churn'}
+- Token Supply Balance: {'✅ Healthy burn/mint ratio (0.7-1.3)' if 0.7 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.3 else '⚠️ Moderate burn/mint ratio (0.5-1.5)' if 0.5 <= (final_result.get('cumulative_burned', 1) / max(1, final_result.get('cumulative_minted', 1))) <= 1.5 else '❌ Unhealthy burn/mint ratio'}
+- Platform Sustainability: {'✅ Platform profitable (revenue > costs)' if final_result.get('revenue_cost_ratio', 0) > 1.2 else '⚠️ Platform break-even' if final_result.get('revenue_cost_ratio', 0) > 1.0 else '❌ Platform losing money'}
+
+Burn/Mint Ratio: {final_result.get('cumulative_burned', 0) / max(1, final_result.get('cumulative_minted', 1)):.2f}
+Revenue/Cost Ratio: {final_result.get('revenue_cost_ratio', 0):.2f}
+Price Volatility: {abs(final_result.get('total_value_change', 0)):.1f}%
 """
         
         st.download_button(
