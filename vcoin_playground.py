@@ -3509,6 +3509,34 @@ def economy_scale_simulator_interface():
     
     st.info(f"**📊 Platform Logic:** {ratios['description']}")
     
+    # Content-driven model explanation
+    with st.expander("💡 Content-Driven Tokenomics Explanation", expanded=False):
+        st.markdown("""
+        **🎯 Content-Driven Minting Model:**
+        
+        **Traditional Model Problems:**
+        - Fixed daily minting regardless of activity
+        - No connection between content creation and token supply
+        - Inflation without value creation
+        - Poor scaling with platform growth
+        
+        **Content-Driven Model Benefits:**
+        - **Minting tied to content**: Only mint when content is created
+        - **Quality-based minting**: Better content = more tokens minted
+        - **NFT premium minting**: NFT-eligible content gets bonus minting
+        - **Natural scaling**: More content = more tokens, automatically
+        - **No empty inflation**: No minting without value creation
+        
+        **Burn Mechanisms:**
+        - **Commission burns**: Platform fees get burned for deflation
+        - **Quality penalties**: Low-engagement content triggers burns
+        - **NFT trading burns**: Trading fees get burned
+        - **Promotion burns**: Creators pay tokens for visibility
+        - **Spam penalties**: Excessive posting gets penalized
+        
+        **Result**: Self-balancing economy that scales organically with content creation!
+        """)
+    
     # Economic parameters
     st.subheader("💰 Economic Parameters")
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -3530,10 +3558,25 @@ def economy_scale_simulator_interface():
                 help="💡 Daily revenue generated per 1,000 active users"
             )
         else:
-            daily_mint_rate = st.slider(
-                "Daily Token Mint Rate (%)",
-                min_value=0.01, max_value=1.0, value=0.1, step=0.01,
-                help="💡 Daily % of total supply minted for rewards"
+            # Content-driven minting approach
+            st.markdown("**🎯 Content-Driven Token Minting:**")
+            
+            tokens_per_content = st.number_input(
+                "VCOIN Minted per Content Piece",
+                min_value=100, max_value=10000, value=1000, step=100,
+                help="💡 Fixed VCOIN amount minted for each piece of content created (scales with content volume)"
+            )
+            
+            nft_mint_multiplier = st.slider(
+                "NFT Content Mint Multiplier",
+                min_value=1.0, max_value=5.0, value=2.0, step=0.1,
+                help="💡 Extra minting multiplier for NFT-eligible content (2.0 = double minting)"
+            )
+            
+            nft_content_percentage = st.slider(
+                "NFT-Eligible Content (%)",
+                min_value=5, max_value=50, value=15, step=5,
+                help="💡 Percentage of content that becomes NFTs and gets extra minting"
             )
     
     with col2:
@@ -3560,6 +3603,49 @@ def economy_scale_simulator_interface():
             "Posts per Creator/Day",
             min_value=1, max_value=10, value=2, step=1,
             help="💡 Average content pieces per creator daily"
+        )
+    
+    # Enhanced burn mechanisms
+    st.subheader("🔥 Content-Driven Burn Mechanisms")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        commission_burn_rate = st.slider(
+            "Commission Burn Rate (%)",
+            min_value=10, max_value=50, value=25, step=5,
+            help="💡 % of platform commission that gets burned (deflationary pressure)"
+        )
+        
+        quality_penalty_burn = st.slider(
+            "Quality Penalty Burn (%)",
+            min_value=0, max_value=30, value=10, step=5,
+            help="💡 % of rewards burned for low-engagement content (< 1% engagement)"
+        )
+    
+    with col2:
+        nft_trading_burn = st.slider(
+            "NFT Trading Burn (%)",
+            min_value=1, max_value=10, value=3, step=1,
+            help="💡 % of NFT trading volume that gets burned"
+        )
+        
+        engagement_reward_burn = st.slider(
+            "Engagement Reward Burn (%)",
+            min_value=0, max_value=15, value=5, step=1,
+            help="💡 % of engagement rewards that get burned (circulation control)"
+        )
+    
+    with col3:
+        promotion_burn_rate = st.slider(
+            "Content Promotion Burn Rate",
+            min_value=0.0, max_value=2.0, value=0.5, step=0.1,
+            help="💡 VCOIN burned per view for content promotion (creators pay for visibility)"
+        )
+        
+        spam_penalty_multiplier = st.slider(
+            "Spam Penalty Multiplier",
+            min_value=1.0, max_value=5.0, value=2.0, step=0.5,
+            help="💡 Burn multiplier for excessive posting (anti-spam mechanism)"
         )
     
     # Growth phases configuration
@@ -3636,14 +3722,34 @@ def economy_scale_simulator_interface():
             total_daily_comments = sum(scenario['count'] * scenario['comments'] for scenario in content_scenarios)
             total_daily_shares = sum(scenario['count'] * scenario['shares'] for scenario in content_scenarios)
             
-            # Calculate reward pool for this phase
+            # Calculate content-driven minting for this phase
             if revenue_mode == 'revenue_backed':
                 phase_daily_revenue = (phase_users / 1000) * revenue_per_1k_users
                 reward_pool_usd = phase_daily_revenue * 0.90  # 90% to rewards
                 reward_pool_tokens = reward_pool_usd / vcoin_price
+                tokens_minted_for_content = 0  # No additional minting in revenue mode
             else:
-                # Bootstrap mode
-                reward_pool_tokens = total_supply * (daily_mint_rate / 100)
+                # Content-driven minting: mint tokens based on content creation
+                regular_content = int(phase_daily_content * (100 - nft_content_percentage) / 100)
+                nft_content = int(phase_daily_content * nft_content_percentage / 100)
+                
+                # Calculate minting based on content
+                regular_minting = regular_content * tokens_per_content
+                nft_minting = nft_content * tokens_per_content * nft_mint_multiplier
+                
+                # Quality-based minting adjustments
+                total_engagement_rate = (total_daily_likes + total_daily_comments + total_daily_shares) / max(1, total_daily_views)
+                
+                if total_engagement_rate > 0.05:  # High engagement (>5%)
+                    quality_bonus = 1.5
+                elif total_engagement_rate > 0.02:  # Medium engagement (2-5%)
+                    quality_bonus = 1.0
+                else:  # Low engagement (<2%)
+                    quality_bonus = 0.75
+                
+                # Total content-driven minting
+                tokens_minted_for_content = (regular_minting + nft_minting) * quality_bonus
+                reward_pool_tokens = tokens_minted_for_content
                 reward_pool_usd = reward_pool_tokens * vcoin_price
             
             # Calculate per-content rewards (matching Content Calculator logic)
@@ -3656,32 +3762,54 @@ def economy_scale_simulator_interface():
             # Calculate total rewards and burns
             total_daily_content_rewards = enhanced_reward_per_content * phase_daily_content
             
-            # Token burns (simplified)
+            # Content-driven burn mechanisms
             platform_commission = total_daily_content_rewards * 0.10
-            commission_burn = platform_commission * 0.50  # 50% of commission burned
+            commission_burn = platform_commission * (commission_burn_rate / 100)
             
-            # Additional burns based on activity
-            nft_trading_burn = total_daily_content_rewards * 0.02  # 2% for NFT activity
-            promotion_burn = total_daily_content_rewards * 0.01   # 1% for content promotion
+            # Quality-based burns
+            low_engagement_content = sum(1 for scenario in content_scenarios 
+                                       if (scenario['likes'] + scenario['comments'] + scenario['shares']) / max(1, scenario['views']) < 0.01)
+            quality_penalty_total = low_engagement_content * enhanced_reward_per_content * (quality_penalty_burn / 100)
             
-            total_daily_burns = commission_burn + nft_trading_burn + promotion_burn
+            # Activity-based burns
+            nft_volume = nft_content * enhanced_reward_per_content * 0.3  # Assume 30% of NFT rewards get traded
+            nft_burn = nft_volume * (nft_trading_burn / 100)
+            
+            # Promotion burns (creators pay for visibility)
+            promotion_burn = total_daily_views * promotion_burn_rate
+            
+            # Engagement reward burns
+            total_engagement_rewards = total_daily_content_rewards * 0.50  # 50% goes to engagement
+            engagement_burn = total_engagement_rewards * (engagement_reward_burn / 100)
+            
+            # Spam penalty burns (for excessive posting)
+            avg_posts_per_creator = phase_daily_content / max(1, phase_creators)
+            if avg_posts_per_creator > 5:  # Excessive posting threshold
+                spam_penalty = (avg_posts_per_creator - 5) * phase_creators * 100 * spam_penalty_multiplier
+            else:
+                spam_penalty = 0
+            
+            total_daily_burns = commission_burn + quality_penalty_total + nft_burn + promotion_burn + engagement_burn + spam_penalty
             
             # Net token flow
             net_daily_flow = reward_pool_tokens - total_daily_burns
             
-            # Store phase results
+            # Store phase results with enhanced content-driven metrics
             phase_result = {
                 'phase_name': phase['name'],
                 'emoji': phase['emoji'],
                 'users': phase_users,
                 'creators': phase_creators,
                 'daily_content': phase_daily_content,
+                'regular_content': regular_content if revenue_mode == 'bootstrap_mode' else phase_daily_content,
+                'nft_content': nft_content if revenue_mode == 'bootstrap_mode' else 0,
                 'content_scenarios': content_scenarios,
                 'total_views': total_daily_views,
                 'total_likes': total_daily_likes,
                 'total_comments': total_daily_comments,
                 'total_shares': total_daily_shares,
                 'engagement_rate': (total_daily_likes + total_daily_comments + total_daily_shares) / max(1, total_daily_views),
+                'quality_bonus': quality_bonus if revenue_mode == 'bootstrap_mode' else 1.0,
                 'daily_revenue': phase_daily_revenue if revenue_mode == 'revenue_backed' else 0,
                 'reward_pool_tokens': reward_pool_tokens,
                 'reward_pool_usd': reward_pool_usd,
@@ -3689,10 +3817,22 @@ def economy_scale_simulator_interface():
                 'enhanced_reward_per_content': enhanced_reward_per_content,
                 'total_content_rewards': total_daily_content_rewards,
                 'total_burns': total_daily_burns,
+                'commission_burn': commission_burn,
+                'quality_penalty_burn': quality_penalty_total,
+                'nft_trading_burn': nft_burn,
+                'promotion_burn': promotion_burn,
+                'engagement_burn': engagement_burn,
+                'spam_penalty_burn': spam_penalty,
                 'net_token_flow': net_daily_flow,
-                'tokens_minted': reward_pool_tokens,
+                'tokens_minted': tokens_minted_for_content if revenue_mode == 'bootstrap_mode' else 0,
                 'tokens_burned': total_daily_burns,
-                'economy_health': min(100, (enhanced_reward_per_content / 100) * 30 + (phase_users / 10000) * 40 + 30)
+                'burn_mint_ratio': total_daily_burns / max(1, tokens_minted_for_content) if revenue_mode == 'bootstrap_mode' else 0,
+                'minting_efficiency': tokens_minted_for_content / max(1, phase_daily_content) if revenue_mode == 'bootstrap_mode' else 0,
+                'economy_health': min(100, 
+                    (enhanced_reward_per_content / 1000) * 25 +  # Reward adequacy
+                    (min(1, total_daily_burns / max(1, tokens_minted_for_content)) * 50) +  # Burn balance
+                    (min(1, total_engagement_rate * 20) * 25)  # Engagement health
+                ) if revenue_mode == 'bootstrap_mode' else min(100, (enhanced_reward_per_content / 100) * 30 + (phase_users / 10000) * 40 + 30)
             }
             
             results.append(phase_result)
@@ -3703,16 +3843,17 @@ def economy_scale_simulator_interface():
         # Phase comparison overview
         st.subheader("🏆 Economy Scale Comparison")
         
-        # Create comparison table
+        # Create enhanced comparison table
         comparison_data = {
             'Phase': [r['emoji'] + ' ' + r['phase_name'] for r in results],
             'Users': [f"{r['users']:,}" for r in results],
-            'Daily Content': [f"{r['daily_content']:,}" for r in results],
-            'Per Content Reward': [f"{r['enhanced_reward_per_content']:,.0f} VCOIN" for r in results],
-            'Total Daily Minted': [f"{r['tokens_minted']:,.0f} VCOIN" for r in results],
-            'Total Daily Burned': [f"{r['tokens_burned']:,.0f} VCOIN" for r in results],
-            'Net Flow': [f"{r['net_token_flow']:+,.0f} VCOIN" for r in results],
-            'Economy Health': [f"{r['economy_health']:.0f}/100" for r in results]
+            'Content/Day': [f"{r['daily_content']:,}" for r in results],
+            'Minted/Content': [f"{r['minting_efficiency']:,.0f} VCOIN" if r['minting_efficiency'] > 0 else "Revenue-backed" for r in results],
+            'Total Minted': [f"{r['tokens_minted']:,.0f} VCOIN" for r in results],
+            'Total Burned': [f"{r['tokens_burned']:,.0f} VCOIN" for r in results],
+            'Burn/Mint Ratio': [f"{r['burn_mint_ratio']:.2f}" if r['burn_mint_ratio'] > 0 else "N/A" for r in results],
+            'Net Flow': [f"{r['net_token_flow']:+,.0f}" for r in results],
+            'Health': [f"{r['economy_health']:.0f}/100" for r in results]
         }
         
         comparison_df = pd.DataFrame(comparison_data)
@@ -3741,16 +3882,24 @@ def economy_scale_simulator_interface():
                     st.write(f"• Overall Engagement: {result['engagement_rate']:.1%}")
                 
                 with col2:
-                    st.markdown("**🪙 Token Economics:**")
-                    st.write(f"• Reward Pool: {result['reward_pool_tokens']:,.0f} VCOIN")
-                    st.write(f"• Pool USD Value: ${result['reward_pool_usd']:,.0f}")
-                    st.write(f"• Base per Content: {result['base_reward_per_content']:,.0f} VCOIN")
+                    st.markdown("**🪙 Content-Driven Token Economics:**")
+                    if revenue_mode == 'bootstrap_mode':
+                        st.write(f"• Regular Content: {result['regular_content']:,} pieces")
+                        st.write(f"• NFT Content: {result['nft_content']:,} pieces ({nft_content_percentage}%)")
+                        st.write(f"• Quality Bonus: {result['quality_bonus']:.2f}× (engagement-based)")
+                        st.write(f"• Minting per Content: {result['minting_efficiency']:,.0f} VCOIN")
+                    else:
+                        st.write(f"• Revenue Pool: ${result['reward_pool_usd']:,.0f}")
+                        st.write(f"• Token Pool: {result['reward_pool_tokens']:,.0f} VCOIN")
+                    
                     st.write(f"• Enhanced per Content: {result['enhanced_reward_per_content']:,.0f} VCOIN")
                     st.write(f"• Total Content Rewards: {result['total_content_rewards']:,.0f} VCOIN")
                     
-                    st.markdown("**🔥 Token Flow:**")
+                    st.markdown("**🔥 Content-Driven Token Flow:**")
                     st.write(f"• Daily Minted: {result['tokens_minted']:,.0f} VCOIN")
                     st.write(f"• Daily Burned: {result['tokens_burned']:,.0f} VCOIN")
+                    if result['burn_mint_ratio'] > 0:
+                        st.write(f"• Burn/Mint Ratio: {result['burn_mint_ratio']:.2f}")
                     flow_status = "Inflationary" if result['net_token_flow'] > 0 else "Deflationary"
                     st.write(f"• Net Flow: {result['net_token_flow']:+,.0f} VCOIN ({flow_status})")
                 
@@ -3762,6 +3911,14 @@ def economy_scale_simulator_interface():
                         st.write(f"  - {scenario['likes']:,} likes")
                         st.write(f"  - {scenario['comments']:,} comments") 
                         st.write(f"  - {scenario['shares']:,} shares")
+                    
+                    st.markdown("**🔥 Burn Breakdown:**")
+                    st.write(f"• Commission Burn: {result['commission_burn']:,.0f} VCOIN")
+                    st.write(f"• Quality Penalty: {result['quality_penalty_burn']:,.0f} VCOIN")
+                    st.write(f"• NFT Trading: {result['nft_trading_burn']:,.0f} VCOIN")
+                    st.write(f"• Promotion: {result['promotion_burn']:,.0f} VCOIN")
+                    st.write(f"• Engagement: {result['engagement_burn']:,.0f} VCOIN")
+                    st.write(f"• Spam Penalty: {result['spam_penalty_burn']:,.0f} VCOIN")
                     
                     st.markdown("**💡 Economy Health:**")
                     health_score = result['economy_health']
@@ -3876,7 +4033,9 @@ def economy_scale_simulator_interface():
             'vcoin_price': vcoin_price,
             'parameters': {
                 'revenue_per_1k_users': revenue_per_1k_users if revenue_mode == 'revenue_backed' else 0,
-                'daily_mint_rate': daily_mint_rate if revenue_mode == 'bootstrap_mode' else 0,
+                'tokens_per_content': tokens_per_content if revenue_mode == 'bootstrap_mode' else 0,
+                'nft_mint_multiplier': nft_mint_multiplier if revenue_mode == 'bootstrap_mode' else 0,
+                'nft_content_percentage': nft_content_percentage if revenue_mode == 'bootstrap_mode' else 0,
                 'creator_percentage': creator_percentage,
                 'posts_per_creator': posts_per_creator,
                 'total_supply': total_supply
