@@ -622,15 +622,40 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
             # Revenue growth
             current_revenue = current_revenue * (1 + config['revenue_growth_rate'])
         
-        # Daily calculations
+        # Daily calculations - align with Content Calculator logic
         daily_creators = current_users * params['content_creation_rate']
-        daily_rewards_pool = current_revenue * 0.7  # 70% of revenue to rewards
+        daily_content_pieces = daily_creators * 2  # Assume each creator makes 2 pieces of content per day
         
-        # Reward distribution
-        creator_rewards = daily_rewards_pool * params['creator_share']
-        engagement_rewards = daily_rewards_pool * params['engagement_share']
-        commission_rewards = daily_rewards_pool * params['commission_share']
-        royalty_rewards = daily_rewards_pool * params['royalty_share']
+        # Use Content Calculator logic for reward pool calculation
+        if current_revenue > 0:
+            # Revenue-backed mode: 90% of revenue to rewards (matching Content Calculator)
+            daily_rewards_pool_usd = current_revenue * 0.90
+            daily_rewards_pool_tokens = daily_rewards_pool_usd / current_price
+        else:
+            # Bootstrap mode: use token minting (matching Content Calculator bootstrap)
+            daily_token_mint = current_supply * (params['annual_inflation_rate'] / 365)
+            daily_rewards_pool_tokens = daily_token_mint
+            daily_rewards_pool_usd = daily_rewards_pool_tokens * current_price
+        
+        # Calculate per-content reward (matching Content Calculator approach)
+        base_reward_per_content = daily_rewards_pool_tokens / max(1, daily_content_pieces)
+        
+        # Apply average multipliers (simplified from Content Calculator's complex engine)
+        avg_content_multiplier = 1.2  # Average between different content types
+        avg_engagement_multiplier = 1.5  # Average engagement boost
+        avg_quality_multiplier = 1.3  # Average 5A and accuracy multiplier
+        
+        total_multiplier = avg_content_multiplier * avg_engagement_multiplier * avg_quality_multiplier
+        enhanced_reward_per_content = base_reward_per_content * total_multiplier
+        
+        # Total content rewards (all creators combined)
+        total_content_rewards = enhanced_reward_per_content * daily_content_pieces
+        
+        # Distribute according to our tokenomics model
+        creator_rewards = total_content_rewards * params['creator_share']
+        engagement_rewards = total_content_rewards * params['engagement_share'] 
+        commission_rewards = total_content_rewards * params['commission_share']
+        royalty_rewards = total_content_rewards * params['royalty_share']
         
         # Transaction fees
         daily_transactions = current_users * (params['avg_session_minutes'] / 30)  # Transactions per session
@@ -643,8 +668,13 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
         commission_burned = commission_rewards * params['commission_burn_rate']
         total_burned = commission_burned
         
-        # Token minting (inflation)
-        daily_inflation = current_supply * (params['annual_inflation_rate'] / 365)
+        # Token minting (inflation) - use actual minting from reward calculation
+        if current_revenue > 0:
+            # In revenue mode, inflation is separate from rewards
+            daily_inflation = current_supply * (params['annual_inflation_rate'] / 365)
+        else:
+            # In bootstrap mode, inflation IS the reward minting (matching Content Calculator)
+            daily_inflation = daily_token_mint
         current_supply = min(params['max_supply'], current_supply + daily_inflation - total_burned)
         
         # Price calculation (more realistic based on starting price and growth)
@@ -699,6 +729,10 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
             'commission_rewards': commission_rewards,
             'royalty_rewards': royalty_rewards,
             'total_rewards': creator_rewards + engagement_rewards + commission_rewards + royalty_rewards,
+            'daily_content_pieces': daily_content_pieces,
+            'base_reward_per_content': base_reward_per_content,
+            'enhanced_reward_per_content': enhanced_reward_per_content,
+            'total_multiplier': total_multiplier,
             'total_burned': total_burned,
             'daily_minted': daily_inflation,
             'cumulative_minted': cumulative_minted,
@@ -718,7 +752,7 @@ def run_enhanced_parameter_simulation(params: Dict[str, Any], days: int, scenari
             'avg_user_earnings': (engagement_rewards * current_price) / current_users,
             'user_retention_rate': 100 - (params['monthly_churn_rate'] * config['churn_multiplier'] * 100),
             'acquisition_roi': (current_revenue / current_users * 30) / params['user_acquisition_cost'],
-            'revenue_cost_ratio': current_revenue / (daily_rewards_pool + params['user_acquisition_cost'] * current_users / 30),
+            'revenue_cost_ratio': current_revenue / (daily_rewards_pool_usd + params['user_acquisition_cost'] * current_users / 30),
             'health_score': min(100, (current_price / params['initial_price']) * 50 + 
                               (current_users / params['daily_users']) * 25 + 
                               (staking_rate * 25)),
@@ -1023,6 +1057,56 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
         st.markdown("**Key Indicators:**")
         for indicator in indicators:
             st.markdown(f"- {indicator}")
+    
+    # Content Calculator Alignment Section
+    st.markdown("---")
+    st.subheader("🎬 Content Calculator Alignment Check")
+    
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    
+    with col1:
+        per_content_reward = final_result.get('enhanced_reward_per_content', 0)
+        st.metric("Per Content Reward", f"{per_content_reward:,.0f} VCOIN", 
+                 f"${per_content_reward * final_result['token_price']:,.2f}")
+    
+    with col2:
+        daily_content = final_result.get('daily_content_pieces', 0)
+        st.metric("Daily Content Pieces", f"{daily_content:,.0f}", 
+                 f"From {final_result['daily_creators']:,.0f} creators")
+    
+    with col3:
+        total_multiplier = final_result.get('total_multiplier', 1.0)
+        st.metric("Content Multiplier", f"{total_multiplier:.2f}x", 
+                 f"Quality + Engagement boost")
+    
+    with col4:
+        base_reward = final_result.get('base_reward_per_content', 0)
+        st.metric("Base Reward per Content", f"{base_reward:,.0f} VCOIN", 
+                 f"Before multipliers")
+    
+    # Explanation of alignment
+    if final_result['platform_revenue'] > 0:
+        reward_calculation = f"""
+        **🔄 Revenue-Backed Calculation (90% to rewards):**
+        - Daily Revenue: ${final_result['platform_revenue']:,.0f}
+        - Reward Pool: ${final_result['platform_revenue'] * 0.90:,.0f} (90%)
+        - Token Pool: {(final_result['platform_revenue'] * 0.90) / final_result['token_price']:,.0f} VCOIN
+        - Content Pieces: {daily_content:,.0f}
+        - Base per Content: {base_reward:,.0f} VCOIN
+        - With Multipliers: {per_content_reward:,.0f} VCOIN
+        """
+    else:
+        daily_mint = final_result.get('daily_minted', 0)
+        reward_calculation = f"""
+        **🚀 Bootstrap Mode Calculation (Token Minting):**
+        - Daily Token Mint: {daily_mint:,.0f} VCOIN
+        - Content Pieces: {daily_content:,.0f}
+        - Base per Content: {base_reward:,.0f} VCOIN
+        - With Multipliers: {per_content_reward:,.0f} VCOIN
+        - **This matches Content Calculator bootstrap mode!**
+        """
+    
+    st.info(reward_calculation)
     
     # Additional metrics row
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -2970,9 +3054,12 @@ Key Performance Indicators:
 - User Satisfaction Score: {final_result.get('user_satisfaction', 0):.1f}/100
 - Overall Economy Health: {(final_result.get('platform_health', 0) + final_result.get('token_economy_score', 0) + final_result.get('user_satisfaction', 0)) / 3:.1f}/100
 
-💰 DAILY REWARDS ANALYSIS:
-- Daily Reward Tokens: {final_result.get('total_rewards', 0):,.0f} VCOIN
-- Daily Reward USD Value: ${final_result.get('total_rewards', 0) * final_result.get('token_price', 0):,.2f}
+💰 DAILY REWARDS ANALYSIS (Content Calculator Aligned):
+- Per Content Reward: {final_result.get('enhanced_reward_per_content', 0):,.0f} VCOIN (${final_result.get('enhanced_reward_per_content', 0) * final_result.get('token_price', 0):,.2f})
+- Daily Content Pieces: {final_result.get('daily_content_pieces', 0):,.0f} pieces
+- Content Multiplier: {final_result.get('total_multiplier', 1.0):.2f}× (Quality + Engagement boost)
+- Daily Reward Pool: {final_result.get('total_rewards', 0):,.0f} VCOIN (${final_result.get('total_rewards', 0) * final_result.get('token_price', 0):,.2f})
+- Reward Pool Source: {'90% of revenue' if final_result.get('platform_revenue', 0) > 0 else 'Token minting (bootstrap mode)'}
 - Average Creator Daily Earnings: ${final_result.get('avg_creator_earnings', 0):.2f} ({final_result.get('avg_creator_earnings', 0) / final_result.get('token_price', 0.01):,.0f} VCOIN)
 - Average User Daily Earnings: ${final_result.get('avg_user_earnings', 0):.4f} ({final_result.get('avg_user_earnings', 0) / final_result.get('token_price', 0.01):.2f} VCOIN)
 - Daily Platform Revenue: ${final_result.get('platform_revenue', 0):,.0f}
