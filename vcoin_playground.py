@@ -1238,82 +1238,68 @@ def reverse_simulation_interface():
         )
     
     with col3:
-        # Platform model selection for engagement ratios
-        platform_model = st.selectbox(
-            "Platform Engagement Model:",
-            ['hybrid_ig_x', 'instagram_like', 'x_twitter_like', 'youtube_like'],
-            format_func=lambda x: {
-                'hybrid_ig_x': '🔄 Hybrid (IG + X)',
-                'instagram_like': '📸 Instagram Model',
-                'x_twitter_like': '🐦 X/Twitter Model', 
-                'youtube_like': '📺 YouTube Model'
-            }[x],
-            help="💡 Select platform model for engagement calculations"
+        vcoin_price = st.number_input(
+            "VCOIN Token Price ($)",
+            min_value=0.0000001, max_value=10.0, value=0.10, step=0.01, format="%.7f",
+            help="💡 Current VCOIN token price for calculations"
+        )
+    
+    # Direct engagement input section
+    st.subheader("📊 Content Engagement Metrics")
+    st.markdown("**Input actual engagement numbers instead of platform assumptions**")
+    
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    
+    with col1:
+        total_monthly_views = st.number_input(
+            "Total Monthly Views",
+            min_value=1000, max_value=1_000_000_000, value=10_000_000, step=100_000,
+            help="💡 Total views across all content for the month"
+        )
+    
+    with col2:
+        total_monthly_likes = st.number_input(
+            "Total Monthly Likes",
+            min_value=100, max_value=100_000_000, value=500_000, step=10_000,
+            help="💡 Total likes across all content for the month"
+        )
+    
+    with col3:
+        total_monthly_shares = st.number_input(
+            "Total Monthly Shares",
+            min_value=10, max_value=10_000_000, value=100_000, step=1_000,
+            help="💡 Total shares/reposts across all content for the month"
+        )
+    
+    with col4:
+        total_monthly_comments = st.number_input(
+            "Total Monthly Comments",
+            min_value=10, max_value=10_000_000, value=50_000, step=1_000,
+            help="💡 Total comments across all content for the month"
         )
         
-        # Enhanced token price input
-        st.markdown("**Assumed Token Price ($)**")
-        
-        col1, col2 = st.columns([3, 1])
-        common_prices = ["0.0000001", "0.00001", "0.0001", "0.001", "0.01", "0.10", "1.00"]
-        
-        with col1:
-            dropdown_options = common_prices + ["Custom..."]
-            selected_option = st.selectbox(
-                "Select or enter price:",
-                dropdown_options,
-                index=5,
-                key="price_dropdown_reverse"
-            )
-        
-        with col2:
-            if selected_option == "Custom...":
-                custom_price = st.text_input("Custom:", value="0.10", key="custom_price_reverse")
-                try:
-                    assumed_token_price = float(custom_price)
-                    if assumed_token_price <= 0:
-                        st.error("⚠️ Must be > 0")
-                        assumed_token_price = 0.10
-                except ValueError:
-                    st.error("⚠️ Invalid")
-                    assumed_token_price = 0.10
-            else:
-                assumed_token_price = float(selected_option)
-                st.write("")
-        
-        st.success(f"💰 Price: ${assumed_token_price:.7f}")
-        
-        creator_engagement_ratio = st.slider("Creator vs Consumer Reward Ratio", 
-                                           min_value=1.0, max_value=10.0, value=4.0, step=0.5,
-                                           help="💡 How many times more should creators earn than consumers?")
+    
+    # Calculate engagement metrics
+    total_monthly_engagement = total_monthly_likes + total_monthly_shares + total_monthly_comments
+    monthly_engagement_rate = total_monthly_engagement / max(1, total_monthly_views)
+    
+    # Display engagement analysis
+    st.info(f"""
+    **📈 Engagement Analysis:**
+    - Total Monthly Engagement: {total_monthly_engagement:,} interactions
+    - Engagement Rate: {monthly_engagement_rate:.1%} of views
+    - Views per Day: {total_monthly_views / 30:,.0f}
+    - Engagement per Day: {total_monthly_engagement / 30:,.0f}
+    """)
     
     # Calculate button
     if st.button("🧮 Calculate Content-Driven Parameters", type="primary", key="reverse_calc"):
         
-        # Define platform engagement ratios (same as Economy Scale Simulator)
-        platform_ratios = {
-            'hybrid_ig_x': {
-                'view_to_like': 0.055, 'like_to_comment': 0.065, 'like_to_share': 0.225,
-                'base_engagement': 0.045, 'creator_ratio': 0.025
-            },
-            'instagram_like': {
-                'view_to_like': 0.075, 'like_to_comment': 0.035, 'like_to_share': 0.075,
-                'base_engagement': 0.055, 'creator_ratio': 0.03
-            },
-            'x_twitter_like': {
-                'view_to_like': 0.015, 'like_to_comment': 0.10, 'like_to_share': 0.35,
-                'base_engagement': 0.025, 'creator_ratio': 0.02
-            },
-            'youtube_like': {
-                'view_to_like': 0.04, 'like_to_comment': 0.0075, 'like_to_share': 0.02,
-                'base_engagement': 0.04, 'creator_ratio': 0.015
-            }
-        }
+        # Use direct engagement inputs for calculations
+        assumed_token_price = vcoin_price
         
-        ratios = platform_ratios[platform_model]
-        
-        # Calculate content and creator metrics
-        estimated_creators = int(total_active_users * ratios['creator_ratio'])
+        # Calculate content and creator metrics based on actual data
+        estimated_creators = int(total_active_users * 0.025)  # Assume 2.5% are creators
         total_monthly_posts = estimated_creators * target_posts_per_month
         daily_posts = total_monthly_posts / 30
         
@@ -1396,7 +1382,7 @@ def reverse_simulation_interface():
         with col1:
             st.markdown("**🎯 Creator Economics:**")
             creator_reward_per_content = required_vcoin_per_content * 0.40  # 40% to creator
-            st.write(f"• Creators: {estimated_creators:,} ({ratios['creator_ratio']:.1%} of users)")
+            st.write(f"• Creators: {estimated_creators:,} (2.5% of users)")
             st.write(f"• Posts per Creator/Month: {target_posts_per_month}")
             st.write(f"• Creator Reward per Content: {creator_reward_per_content:,.0f} VCOIN")
             st.write(f"• Creator Monthly Earnings: {creator_reward_per_content * target_posts_per_month:,.0f} VCOIN")
@@ -1482,6 +1468,118 @@ def reverse_simulation_interface():
         
         for rec in recommendations:
             st.info(rec)
+        
+        # Platform earnings comparison
+        st.markdown("---")
+        st.subheader("💰 Platform Earnings Comparison")
+        st.markdown("**How much would this same engagement earn on other platforms?**")
+        
+        # Define platform monetization data (2024-2025 averages)
+        platform_monetization = {
+            'youtube': {
+                'cpm': 3.5,  # $3.50 per 1,000 views
+                'creator_share': 0.55,  # 55% to creators
+                'name': '📺 YouTube',
+                'description': 'Long-form video, ad revenue sharing'
+            },
+            'tiktok': {
+                'cpm': 0.8,  # $0.80 per 1,000 views (Creator Fund)
+                'creator_share': 1.0,  # 100% to creators (simplified)
+                'name': '🎵 TikTok',
+                'description': 'Short-form video, Creator Fund'
+            },
+            'x_twitter': {
+                'cpm': 1.2,  # $1.20 per 1,000 views (Creator Revenue Sharing)
+                'creator_share': 0.70,  # 70% to creators
+                'name': '🐦 X (Twitter)',
+                'description': 'Text/media posts, revenue sharing'
+            }
+        }
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        platforms = ['youtube', 'tiktok', 'x_twitter']
+        columns = [col1, col2, col3]
+        
+        for platform, col in zip(platforms, columns):
+            with col:
+                platform_data = platform_monetization[platform]
+                
+                # Calculate earnings for this platform
+                monthly_revenue = (total_monthly_views / 1000) * platform_data['cpm']
+                creator_earnings = monthly_revenue * platform_data['creator_share']
+                creator_earnings_per_creator = creator_earnings / max(1, estimated_creators)
+                
+                st.markdown(f"**{platform_data['name']}**")
+                st.write(f"*{platform_data['description']}*")
+                st.write(f"• CPM: ${platform_data['cpm']:.2f}")
+                st.write(f"• Creator Share: {platform_data['creator_share']:.0%}")
+                st.write(f"• Monthly Revenue: ${monthly_revenue:,.0f}")
+                st.write(f"• Creator Earnings: ${creator_earnings:,.0f}")
+                st.write(f"• Per Creator: ${creator_earnings_per_creator:,.0f}/month")
+                
+                # Compare with ViWo target
+                viwo_target = target_creator_monthly_usd
+                comparison_ratio = creator_earnings_per_creator / viwo_target if viwo_target > 0 else 0
+                
+                if comparison_ratio >= 1.0:
+                    st.success(f"✅ {comparison_ratio:.1f}× ViWo target")
+                elif comparison_ratio >= 0.5:
+                    st.warning(f"⚠️ {comparison_ratio:.1f}× ViWo target")
+                else:
+                    st.error(f"❌ {comparison_ratio:.1f}× ViWo target")
+        
+        # Summary comparison
+        st.markdown("---")
+        st.subheader("🏆 ViWo vs Traditional Platforms")
+        
+        # Calculate ViWo total monthly creator earnings
+        viwo_total_creator_earnings = estimated_creators * target_creator_monthly_usd
+        
+        comparison_summary = []
+        for platform in platforms:
+            platform_data = platform_monetization[platform]
+            monthly_revenue = (total_monthly_views / 1000) * platform_data['cpm']
+            creator_earnings = monthly_revenue * platform_data['creator_share']
+            
+            comparison_summary.append({
+                'Platform': platform_data['name'],
+                'Total Creator Earnings': f"${creator_earnings:,.0f}",
+                'Per Creator Earnings': f"${creator_earnings / max(1, estimated_creators):,.0f}",
+                'vs ViWo Target': f"{(creator_earnings / max(1, estimated_creators)) / target_creator_monthly_usd:.1f}×"
+            })
+        
+        # Add ViWo row
+        comparison_summary.append({
+            'Platform': '🪙 ViWo (Target)',
+            'Total Creator Earnings': f"${viwo_total_creator_earnings:,.0f}",
+            'Per Creator Earnings': f"${target_creator_monthly_usd:,.0f}",
+            'vs ViWo Target': "1.0× (Target)"
+        })
+        
+        comparison_df = pd.DataFrame(comparison_summary)
+        st.table(comparison_df)
+        
+        # Key insights
+        st.markdown("**💡 Key Platform Insights:**")
+        
+        youtube_earnings = (total_monthly_views / 1000) * 3.5 * 0.55 / max(1, estimated_creators)
+        tiktok_earnings = (total_monthly_views / 1000) * 0.8 / max(1, estimated_creators)
+        x_earnings = (total_monthly_views / 1000) * 1.2 * 0.70 / max(1, estimated_creators)
+        
+        best_platform = max([
+            ('YouTube', youtube_earnings),
+            ('TikTok', tiktok_earnings), 
+            ('X', x_earnings)
+        ], key=lambda x: x[1])
+        
+        st.info(f"""
+        **📊 Platform Performance with Your Engagement:**
+        - **Best Traditional Platform**: {best_platform[0]} (${best_platform[1]:,.0f}/creator/month)
+        - **ViWo Target**: ${target_creator_monthly_usd:,.0f}/creator/month
+        - **ViWo Advantage**: {target_creator_monthly_usd / best_platform[1]:.1f}× better than best traditional platform
+        - **Required VCOIN per Content**: {required_vcoin_per_content:,.0f} VCOIN to achieve this advantage
+        """)
         
         # Export functionality
         if st.button("📄 Export Reverse Simulation", key="export_reverse"):
