@@ -1202,34 +1202,54 @@ def display_enhanced_simulation_results(results: List[Dict[str, Any]], params: D
     return results
 
 def reverse_simulation_interface():
-    """Reverse simulation to find parameters for target creator/consumer earnings"""
+    """Reverse simulation to find optimal content-driven tokenomics parameters"""
     
     st.header("🔄 Reverse Simulation Calculator")
-    st.markdown("**Find the right parameters to achieve target creator and consumer earnings**")
+    st.markdown("**Work backwards from target earnings to find optimal content-driven tokenomics parameters**")
     
-    # Target earnings inputs
-    col1, col2 = st.columns([1, 1])
+    # Content-driven target inputs
+    st.subheader("🎯 Target Monthly Earnings")
+    col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
-        st.subheader("🎯 Target Creator Earnings")
-        target_creator_daily_usd = st.number_input("Target Creator Daily Earnings ($)", 
-                                                  min_value=1, max_value=10000, value=50, step=1,
-                                                  help="💡 How much should an average creator earn per day?")
+        target_creator_monthly_usd = st.number_input(
+            "Target Creator Monthly Earnings ($)", 
+            min_value=50, max_value=50000, value=1500, step=50,
+            help="💡 How much should an average creator earn per month?"
+        )
         
-        expected_creators_percent = st.slider("Expected Creator Participation (%)", 
-                                            min_value=1, max_value=20, value=5, step=1,
-                                            help="💡 Percentage of users who create content daily")
-        
-        st.subheader("🎯 Target Consumer Earnings")
-        target_consumer_daily_usd = st.number_input("Target Consumer Daily Earnings ($)", 
-                                                   min_value=0.1, max_value=100.0, value=5.0, step=0.1,
-                                                   help="💡 How much should an average user earn per day from engagement?")
-        
+        target_posts_per_month = st.number_input(
+            "Target Posts per Creator/Month",
+            min_value=10, max_value=300, value=60, step=10,
+            help="💡 Expected content output per creator monthly (2 posts/day = 60/month)"
+        )
+    
     with col2:
-        st.subheader("📊 Platform Assumptions")
-        assumed_daily_users = st.number_input("Assumed Daily Active Users", 
-                                            min_value=100, max_value=10_000_000, value=10_000, step=1000,
-                                            help="💡 Expected platform size for calculations")
+        target_consumer_monthly_usd = st.number_input(
+            "Target Consumer Monthly Earnings ($)", 
+            min_value=1, max_value=1000, value=50, step=5,
+            help="💡 How much should an average user earn monthly from engagement?"
+        )
+        
+        total_active_users = st.number_input(
+            "Total App Active Users",
+            min_value=1000, max_value=10_000_000, value=100_000, step=5000,
+            help="💡 Total platform user base for calculations"
+        )
+    
+    with col3:
+        # Platform model selection for engagement ratios
+        platform_model = st.selectbox(
+            "Platform Engagement Model:",
+            ['hybrid_ig_x', 'instagram_like', 'x_twitter_like', 'youtube_like'],
+            format_func=lambda x: {
+                'hybrid_ig_x': '🔄 Hybrid (IG + X)',
+                'instagram_like': '📸 Instagram Model',
+                'x_twitter_like': '🐦 X/Twitter Model', 
+                'youtube_like': '📺 YouTube Model'
+            }[x],
+            help="💡 Select platform model for engagement calculations"
+        )
         
         # Enhanced token price input
         st.markdown("**Assumed Token Price ($)**")
@@ -1268,63 +1288,200 @@ def reverse_simulation_interface():
                                            help="💡 How many times more should creators earn than consumers?")
     
     # Calculate button
-    if st.button("🧮 Calculate Required Parameters", type="primary", key="reverse_calc"):
+    if st.button("🧮 Calculate Content-Driven Parameters", type="primary", key="reverse_calc"):
         
-        # Calculate required token rewards
-        creators_count = assumed_daily_users * (expected_creators_percent / 100)
-        total_creator_tokens_needed = (target_creator_daily_usd * creators_count) / assumed_token_price
-        total_consumer_tokens_needed = (target_consumer_daily_usd * assumed_daily_users) / assumed_token_price
+        # Define platform engagement ratios (same as Economy Scale Simulator)
+        platform_ratios = {
+            'hybrid_ig_x': {
+                'view_to_like': 0.055, 'like_to_comment': 0.065, 'like_to_share': 0.225,
+                'base_engagement': 0.045, 'creator_ratio': 0.025
+            },
+            'instagram_like': {
+                'view_to_like': 0.075, 'like_to_comment': 0.035, 'like_to_share': 0.075,
+                'base_engagement': 0.055, 'creator_ratio': 0.03
+            },
+            'x_twitter_like': {
+                'view_to_like': 0.015, 'like_to_comment': 0.10, 'like_to_share': 0.35,
+                'base_engagement': 0.025, 'creator_ratio': 0.02
+            },
+            'youtube_like': {
+                'view_to_like': 0.04, 'like_to_comment': 0.0075, 'like_to_share': 0.02,
+                'base_engagement': 0.04, 'creator_ratio': 0.015
+            }
+        }
         
-        total_daily_tokens_needed = total_creator_tokens_needed + total_consumer_tokens_needed
+        ratios = platform_ratios[platform_model]
         
-        # Calculate required daily revenue (assuming 70% goes to rewards)
-        required_daily_revenue = (total_daily_tokens_needed * assumed_token_price) / 0.7
+        # Calculate content and creator metrics
+        estimated_creators = int(total_active_users * ratios['creator_ratio'])
+        total_monthly_posts = estimated_creators * target_posts_per_month
+        daily_posts = total_monthly_posts / 30
         
-        # Calculate reward distribution percentages
-        creator_share_needed = total_creator_tokens_needed / total_daily_tokens_needed
-        consumer_share_needed = total_consumer_tokens_needed / total_daily_tokens_needed
+        # Calculate required VCOIN per content to meet creator targets
+        target_creator_daily_usd = target_creator_monthly_usd / 30
+        target_consumer_daily_usd = target_consumer_monthly_usd / 30
+        
+        # Content-driven calculation
+        creator_tokens_per_day = target_creator_daily_usd / assumed_token_price
+        creator_posts_per_day = target_posts_per_month / 30
+        
+        # Calculate base VCOIN per content (creator gets 40% of content reward)
+        required_vcoin_per_content = (creator_tokens_per_day / creator_posts_per_day) / 0.40
+        
+        # Calculate total minting needed (content-driven)
+        total_daily_minting = daily_posts * required_vcoin_per_content
+        
+        # Calculate engagement distribution
+        total_consumer_tokens_daily = target_consumer_daily_usd * total_active_users / assumed_token_price
+        engagement_tokens_per_content = total_consumer_tokens_daily / daily_posts
+        engagement_share_needed = engagement_tokens_per_content / required_vcoin_per_content
+        
+        # Calculate required burns for balance (target 70-80% burn rate)
+        target_burn_rate = 0.75  # 75% of minting should be burned for balance
+        required_daily_burns = total_daily_minting * target_burn_rate
         
         # Display results
         st.markdown("---")
-        st.header("📊 Required Parameters")
+        st.header("🎯 Content-Driven Tokenomics Parameters")
         
-        col1, col2, col3 = st.columns([1, 1, 1])
+        # Content-driven minting parameters
+        st.subheader("🪙 Required Content-Driven Minting")
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
         
         with col1:
-            st.metric("Required Daily Revenue", f"${required_daily_revenue:,.0f}")
-            st.metric("Revenue per User", f"${required_daily_revenue/assumed_daily_users:.2f}")
-            st.metric("Total Daily Token Rewards", f"{total_daily_tokens_needed:,.0f} VCOIN")
+            st.metric("VCOIN per Content Piece", f"{required_vcoin_per_content:,.0f} VCOIN", 
+                     f"${required_vcoin_per_content * assumed_token_price:,.2f}")
         
         with col2:
-            st.metric("Creator Share", f"{creator_share_needed:.1%}")
-            st.metric("Consumer Share", f"{consumer_share_needed:.1%}")
-            st.metric("Remaining (Commission + Royalty)", f"{1 - creator_share_needed - consumer_share_needed:.1%}")
+            st.metric("Daily Content Created", f"{daily_posts:,.0f} pieces", 
+                     f"From {estimated_creators:,} creators")
         
         with col3:
-            st.metric("Active Creators", f"{creators_count:,.0f}")
-            st.metric("Creator Tokens/Day", f"{total_creator_tokens_needed/creators_count:,.0f}")
-            st.metric("Consumer Tokens/Day", f"{total_consumer_tokens_needed/assumed_daily_users:.0f}")
+            st.metric("Total Daily Minting", f"{total_daily_minting:,.0f} VCOIN", 
+                     f"${total_daily_minting * assumed_token_price:,.0f}")
         
-        # Feasibility analysis
-        st.subheader("🔍 Feasibility Analysis")
+        with col4:
+            monthly_minting = total_daily_minting * 30
+            st.metric("Total Monthly Minting", f"{monthly_minting:,.0f} VCOIN", 
+                     f"${monthly_minting * assumed_token_price:,.0f}")
         
-        revenue_per_user = required_daily_revenue / assumed_daily_users
+        # Required burn mechanisms for balance
+        st.subheader("🔥 Required Burn Mechanisms (30-Day Balance)")
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
         
-        if revenue_per_user > 10:
-            st.error("⚠️ **High Revenue Requirement**: Requires ${:.2f} revenue per user daily. Consider reducing target earnings or increasing user base.".format(revenue_per_user))
-        elif revenue_per_user > 1:
-            st.warning("⚠️ **Moderate Revenue Requirement**: Requires ${:.2f} revenue per user daily. Achievable with strong monetization.".format(revenue_per_user))
-        else:
-            st.success("✅ **Feasible Revenue Requirement**: Requires ${:.2f} revenue per user daily. Very achievable.".format(revenue_per_user))
+        with col1:
+            st.metric("Required Daily Burns", f"{required_daily_burns:,.0f} VCOIN", 
+                     f"{target_burn_rate:.0%} of minting")
         
-        # Recommendations
-        st.subheader("💡 Recommendations")
+        with col2:
+            monthly_burns = required_daily_burns * 30
+            st.metric("Required Monthly Burns", f"{monthly_burns:,.0f} VCOIN", 
+                     f"For economic balance")
         
-        if creator_share_needed > 0.6:
-            st.info("💡 **High Creator Share**: Consider increasing consumer engagement rewards to balance the economy.")
+        with col3:
+            net_monthly_flow = monthly_minting - monthly_burns
+            st.metric("Net Monthly Token Flow", f"{net_monthly_flow:+,.0f} VCOIN", 
+                     f"{'Inflationary' if net_monthly_flow > 0 else 'Deflationary'}")
         
-        if consumer_share_needed < 0.2:
-            st.info("💡 **Low Consumer Share**: Consider increasing consumer rewards to drive engagement.")
+        with col4:
+            burn_efficiency = required_daily_burns / daily_posts
+            st.metric("Burns per Content", f"{burn_efficiency:,.0f} VCOIN", 
+                     f"Avg burn per content piece")
+        
+        # Content-driven economics breakdown
+        st.subheader("📊 Content-Driven Economics Breakdown")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**🎯 Creator Economics:**")
+            creator_reward_per_content = required_vcoin_per_content * 0.40  # 40% to creator
+            st.write(f"• Creators: {estimated_creators:,} ({ratios['creator_ratio']:.1%} of users)")
+            st.write(f"• Posts per Creator/Month: {target_posts_per_month}")
+            st.write(f"• Creator Reward per Content: {creator_reward_per_content:,.0f} VCOIN")
+            st.write(f"• Creator Monthly Earnings: {creator_reward_per_content * target_posts_per_month:,.0f} VCOIN")
+            st.write(f"• Creator Monthly USD: ${creator_reward_per_content * target_posts_per_month * assumed_token_price:,.0f}")
+            
+            st.markdown("**🎮 Consumer Economics:**")
+            consumer_reward_per_content = engagement_tokens_per_content
+            st.write(f"• Consumers: {total_active_users - estimated_creators:,}")
+            st.write(f"• Consumer Share per Content: {engagement_share_needed:.1%}")
+            st.write(f"• Consumer Tokens per Content: {consumer_reward_per_content:,.2f} VCOIN")
+            st.write(f"• Consumer Daily Earnings: {target_consumer_daily_usd * total_active_users / estimated_creators:,.2f} VCOIN")
+            st.write(f"• Consumer Monthly USD: ${target_consumer_monthly_usd:,.0f}")
+        
+        with col2:
+            st.markdown("**🪙 Token Minting Strategy:**")
+            st.write(f"• Base Minting per Content: {required_vcoin_per_content:,.0f} VCOIN")
+            st.write(f"• Daily Content Volume: {daily_posts:,.0f} pieces")
+            st.write(f"• Daily Total Minting: {total_daily_minting:,.0f} VCOIN")
+            st.write(f"• Monthly Total Minting: {monthly_minting:,.0f} VCOIN")
+            st.write(f"• Minting tied to content creation: ✅")
+            
+            st.markdown("**🔥 Burn Requirements:**")
+            st.write(f"• Target Burn Rate: {target_burn_rate:.0%} of minting")
+            st.write(f"• Daily Burns Needed: {required_daily_burns:,.0f} VCOIN")
+            st.write(f"• Monthly Burns Needed: {monthly_burns:,.0f} VCOIN")
+            st.write(f"• Net Monthly Inflation: {(net_monthly_flow / monthly_minting) * 100:+.1f}%")
+            st.write(f"• Economy Status: {'Balanced' if abs(net_monthly_flow / monthly_minting) < 0.3 else 'Needs Adjustment'}")
+        
+        # Implementation feasibility analysis
+        st.markdown("---")
+        st.subheader("🔍 Implementation Feasibility")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**💰 Economic Feasibility:**")
+            minting_per_user_daily = total_daily_minting / total_active_users
+            
+            if required_vcoin_per_content > 5000:
+                st.error("⚠️ **High Minting per Content**: Consider reducing target earnings or increasing content volume")
+            elif required_vcoin_per_content < 500:
+                st.warning("⚠️ **Low Minting per Content**: May not adequately incentivize creators")
+            else:
+                st.success("✅ **Balanced Minting per Content**: Sustainable and attractive to creators")
+            
+            st.write(f"• Daily Minting per User: {minting_per_user_daily:.1f} VCOIN")
+            st.write(f"• Monthly Inflation Rate: {(net_monthly_flow / (total_active_users * 1000)) * 100:.2f}%")
+            
+        with col2:
+            st.markdown("**🎯 Target Achievement:**")
+            creator_achievement = (creator_reward_per_content * target_posts_per_month * assumed_token_price) / target_creator_monthly_usd
+            consumer_achievement = (target_consumer_daily_usd * 30) / target_consumer_monthly_usd
+            
+            if creator_achievement >= 0.95:
+                st.success(f"✅ Creator Target: {creator_achievement:.1%} achieved")
+            else:
+                st.warning(f"⚠️ Creator Target: Only {creator_achievement:.1%} achieved")
+            
+            if consumer_achievement >= 0.95:
+                st.success(f"✅ Consumer Target: {consumer_achievement:.1%} achieved")
+            else:
+                st.warning(f"⚠️ Consumer Target: Only {consumer_achievement:.1%} achieved")
+        
+        # Key recommendations
+        st.subheader("💡 Implementation Recommendations")
+        
+        recommendations = []
+        
+        if required_vcoin_per_content > 3000:
+            recommendations.append("🔻 **Reduce minting per content** or increase content volume to lower inflation")
+        
+        if engagement_share_needed > 0.6:
+            recommendations.append("⚖️ **High engagement share needed** - ensure sufficient user engagement")
+        
+        if net_monthly_flow / monthly_minting > 0.5:
+            recommendations.append("🔥 **Increase burn mechanisms** to control inflation")
+        
+        if daily_posts < 10:
+            recommendations.append("📈 **Increase content creation incentives** to reach target volume")
+        
+        if not recommendations:
+            recommendations.append("✅ **Parameters look balanced** - ready for implementation!")
+        
+        for rec in recommendations:
+            st.info(rec)
         
         # Export functionality
         if st.button("📄 Export Reverse Simulation", key="export_reverse"):
