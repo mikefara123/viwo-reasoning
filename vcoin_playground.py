@@ -1302,13 +1302,14 @@ def reverse_simulation_interface():
         - Fixed daily minting regardless of content creation
         - No direct connection between content and token supply
         
-        **Content-Driven Model Solution:**
-        - **Fixed base reward per content piece** (constant value)
-        - **Minting tied directly to content creation** (organic scaling)
-        - **Quality multipliers on top of base** (incentivizes better content)
-        - **Burns scale with activity** (automatic economic balance)
+        **Refined Content-Driven Model Solution:**
+        - **Base minimum VCOIN per content** (constant foundation)
+        - **View multipliers** (logarithmic scaling with view count)
+        - **Engagement multipliers** (linear scaling with engagement rate)
+        - **User base multipliers** (platform scale bonus)
+        - **Total reward = Base × All Multipliers**
         
-        **Key Reverse Calculation Steps:**
+        **Sophisticated Reverse Calculation Steps:**
         ```
         1. Creator Metrics:
            Estimated Creators = Total Users × 2.5%
@@ -1318,16 +1319,25 @@ def reverse_simulation_interface():
            Creator Daily Target = Monthly Target ÷ 30
            Creator Tokens/Day = Daily Target ÷ Token Price
         
-        3. Required VCOIN per Content:
-           VCOIN per Content = (Creator Tokens/Day ÷ Posts/Day) ÷ Creator Share (40%)
+        3. Engagement Analysis:
+           Avg Views per Content = Total Views ÷ Total Posts
+           Avg Engagement per Content = (Likes + Shares + Comments) ÷ Posts
+           Engagement Rate = Total Engagement ÷ Total Views
         
-        4. Total Minting:
-           Daily Minting = Daily Posts × VCOIN per Content
+        4. Multiplier Calculations:
+           View Multiplier = 1.0 + log10(Avg Views) ÷ 15
+           Engagement Multiplier = 1.0 + (Engagement Rate × 2.0)
+           User Base Multiplier = 1.0 + (Total Users ÷ 1M) × 0.5
+           Total Multiplier = View × Engagement × User Base
+        
+        5. Base VCOIN Calculation:
+           Target Final Reward = (Creator Tokens/Day ÷ Posts/Day) ÷ 40%
+           Base VCOIN = Target Final Reward ÷ Total Multiplier
+           Final VCOIN = Base × Total Multiplier
+        
+        6. Total Minting:
+           Daily Minting = Daily Posts × Final VCOIN per Content
            Monthly Minting = Daily Minting × 30
-        
-        5. Required Burns:
-           Daily Burns = Daily Minting × 75% (for balance)
-           Net Flow = Minting - Burns (controlled inflation)
         ```
         
         **Result**: Linear scaling where 10× content = 10× total rewards!
@@ -1344,16 +1354,41 @@ def reverse_simulation_interface():
         total_monthly_posts = estimated_creators * target_posts_per_month
         daily_posts = total_monthly_posts / 30
         
-        # Calculate required VCOIN per content to meet creator targets
+        # Calculate sophisticated VCOIN per content with multipliers
         target_creator_daily_usd = target_creator_monthly_usd / 30
         target_consumer_daily_usd = target_consumer_monthly_usd / 30
         
-        # Content-driven calculation
+        # Content-driven calculation with multipliers
         creator_tokens_per_day = target_creator_daily_usd / assumed_token_price
         creator_posts_per_day = target_posts_per_month / 30
         
-        # Calculate base VCOIN per content (creator gets 40% of content reward)
-        required_vcoin_per_content = (creator_tokens_per_day / creator_posts_per_day) / 0.40
+        # Calculate engagement multipliers from input data
+        avg_views_per_content = total_monthly_views / max(1, total_monthly_posts)
+        avg_likes_per_content = total_monthly_likes / max(1, total_monthly_posts)
+        avg_shares_per_content = total_monthly_shares / max(1, total_monthly_posts)
+        avg_comments_per_content = total_monthly_comments / max(1, total_monthly_posts)
+        
+        # Calculate view multiplier (logarithmic scaling)
+        import math
+        view_multiplier = 1.0 + math.log10(max(1, avg_views_per_content)) / 15
+        
+        # Calculate engagement multiplier
+        avg_total_engagement = avg_likes_per_content + avg_shares_per_content + avg_comments_per_content
+        engagement_rate_per_content = avg_total_engagement / max(1, avg_views_per_content)
+        engagement_multiplier = 1.0 + (engagement_rate_per_content * 2.0)  # Linear scaling
+        
+        # Calculate user base multiplier (platform scale bonus)
+        user_base_multiplier = 1.0 + (total_active_users / 1_000_000) * 0.5  # +50% bonus at 1M users
+        
+        # Calculate total multiplier
+        total_content_multiplier = view_multiplier * engagement_multiplier * user_base_multiplier
+        
+        # Calculate base minimum VCOIN (before multipliers)
+        target_final_reward_per_content = (creator_tokens_per_day / creator_posts_per_day) / 0.40
+        base_vcoin_per_content = target_final_reward_per_content / total_content_multiplier
+        
+        # Update the required_vcoin_per_content for display consistency
+        required_vcoin_per_content = target_final_reward_per_content
         
         # Calculate total minting needed (content-driven)
         total_daily_minting = daily_posts * required_vcoin_per_content
@@ -1371,17 +1406,44 @@ def reverse_simulation_interface():
         st.markdown("---")
         st.header("🎯 Content-Driven Tokenomics Parameters")
         
-        # Content-driven minting parameters
-        st.subheader("🪙 Required Content-Driven Minting")
+        # Enhanced content-driven minting parameters
+        st.subheader("🪙 Sophisticated Content-Driven Minting")
+        
+        # Show multiplier breakdown first
+        st.markdown("**📈 Multiplier Breakdown:**")
         col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
         
         with col1:
-            st.metric("VCOIN per Content Piece", f"{required_vcoin_per_content:,.0f} VCOIN", 
-                     f"${required_vcoin_per_content * assumed_token_price:,.2f}")
+            st.metric("View Multiplier", f"{view_multiplier:.3f}×", 
+                     f"From {avg_views_per_content:,.0f} avg views")
+        
+        with col2:
+            st.metric("Engagement Multiplier", f"{engagement_multiplier:.3f}×", 
+                     f"From {engagement_rate_per_content:.1%} engagement rate")
+        
+        with col3:
+            st.metric("User Base Multiplier", f"{user_base_multiplier:.3f}×", 
+                     f"From {total_active_users:,} users")
+        
+        with col4:
+            st.metric("Total Multiplier", f"{total_content_multiplier:.3f}×", 
+                     f"Combined effect")
+        
+        # Main minting parameters
+        st.markdown("**🪙 Minting Parameters:**")
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+        
+        with col1:
+            st.metric("Base VCOIN per Content", f"{base_vcoin_per_content:,.0f} VCOIN", 
+                     f"Before multipliers")
+            st.metric("Final VCOIN per Content", f"{required_vcoin_per_content:,.0f} VCOIN", 
+                     f"${required_vcoin_per_content * assumed_token_price:,.2f} (after {total_content_multiplier:.2f}× multiplier)")
         
         with col2:
             st.metric("Daily Content Created", f"{daily_posts:,.0f} pieces", 
                      f"From {estimated_creators:,} creators")
+            st.metric("Avg Views per Content", f"{avg_views_per_content:,.0f}", 
+                     f"{avg_total_engagement:,.0f} avg engagement")
         
         with col3:
             st.metric("Total Daily Minting", f"{total_daily_minting:,.0f} VCOIN", 
@@ -1391,6 +1453,8 @@ def reverse_simulation_interface():
             monthly_minting = total_daily_minting * 30
             st.metric("Total Monthly Minting", f"{monthly_minting:,.0f} VCOIN", 
                      f"${monthly_minting * assumed_token_price:,.0f}")
+            st.metric("Minting Efficiency", f"{total_daily_minting / max(1, total_active_users):,.1f}", 
+                     f"VCOIN per user per day")
         
         # Required burn mechanisms for balance
         st.subheader("🔥 Required Burn Mechanisms (30-Day Balance)")
@@ -1421,13 +1485,19 @@ def reverse_simulation_interface():
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            st.markdown("**🎯 Creator Economics:**")
+            st.markdown("**🎯 Enhanced Creator Economics:**")
             creator_reward_per_content = required_vcoin_per_content * 0.40  # 40% to creator
             st.write(f"• Creators: {estimated_creators:,} (2.5% of users)")
             st.write(f"• Posts per Creator/Month: {target_posts_per_month}")
-            st.write(f"• Creator Reward per Content: {creator_reward_per_content:,.0f} VCOIN")
+            st.write(f"• Base Creator Reward: {base_vcoin_per_content * 0.40:,.0f} VCOIN (minimum)")
+            st.write(f"• Enhanced Creator Reward: {creator_reward_per_content:,.0f} VCOIN (with {total_content_multiplier:.2f}× multiplier)")
             st.write(f"• Creator Monthly Earnings: {creator_reward_per_content * target_posts_per_month:,.0f} VCOIN")
             st.write(f"• Creator Monthly USD: ${creator_reward_per_content * target_posts_per_month * assumed_token_price:,.0f}")
+            
+            st.markdown("**📊 Multiplier Breakdown:**")
+            st.write(f"• View Impact: {view_multiplier:.2f}× (from {avg_views_per_content:,.0f} avg views)")
+            st.write(f"• Engagement Impact: {engagement_multiplier:.2f}× (from {engagement_rate_per_content:.1%} rate)")
+            st.write(f"• Scale Impact: {user_base_multiplier:.2f}× (from {total_active_users:,} users)")
             
             st.markdown("**🎮 Consumer Economics:**")
             consumer_reward_per_content = engagement_tokens_per_content
@@ -1438,12 +1508,14 @@ def reverse_simulation_interface():
             st.write(f"• Consumer Monthly USD: ${target_consumer_monthly_usd:,.0f}")
         
         with col2:
-            st.markdown("**🪙 Token Minting Strategy:**")
-            st.write(f"• Base Minting per Content: {required_vcoin_per_content:,.0f} VCOIN")
-            st.write(f"• Daily Content Volume: {daily_posts:,.0f} pieces")
+            st.markdown("**🪙 Sophisticated Minting Strategy:**")
+            st.write(f"• Base Minimum per Content: {base_vcoin_per_content:,.0f} VCOIN")
+            st.write(f"• View Multiplier: {view_multiplier:.2f}× (log-based)")
+            st.write(f"• Engagement Multiplier: {engagement_multiplier:.2f}× (linear)")
+            st.write(f"• User Base Multiplier: {user_base_multiplier:.2f}× (scale bonus)")
+            st.write(f"• Final per Content: {required_vcoin_per_content:,.0f} VCOIN")
             st.write(f"• Daily Total Minting: {total_daily_minting:,.0f} VCOIN")
             st.write(f"• Monthly Total Minting: {monthly_minting:,.0f} VCOIN")
-            st.write(f"• Minting tied to content creation: ✅")
             
             st.markdown("**🔥 Burn Requirements:**")
             st.write(f"• Target Burn Rate: {target_burn_rate:.0%} of minting")
@@ -1518,13 +1590,29 @@ def reverse_simulation_interface():
             Creator Posts per Day = {target_posts_per_month} ÷ 30 = {creator_posts_per_day:.1f} posts/day
             ```
             
-            #### **Step 3: Required VCOIN per Content**
+            #### **Step 3: Sophisticated VCOIN per Content with Multipliers**
             ```
-            Creator Share = 40% of each content reward
+            Target Final Reward per Content = (Creator Tokens/Day ÷ Posts/Day) ÷ Creator Share
+            Target Final Reward = ({creator_tokens_per_day:,.0f} ÷ {creator_posts_per_day:.1f}) ÷ 0.40 = {target_final_reward_per_content:,.0f} VCOIN
             
-            Required VCOIN per Content = (Creator Tokens/Day ÷ Creator Posts/Day) ÷ Creator Share
-            Required VCOIN per Content = ({creator_tokens_per_day:,.0f} ÷ {creator_posts_per_day:.1f}) ÷ 0.40
-            Required VCOIN per Content = {required_vcoin_per_content:,.0f} VCOIN per content piece
+            Content Engagement Analysis:
+            • Avg Views per Content: {avg_views_per_content:,.0f}
+            • Avg Likes per Content: {avg_likes_per_content:,.0f}
+            • Avg Shares per Content: {avg_shares_per_content:,.0f}
+            • Avg Comments per Content: {avg_comments_per_content:,.0f}
+            • Engagement Rate per Content: {engagement_rate_per_content:.1%}
+            
+            Multiplier Calculations:
+            • View Multiplier = 1.0 + log10({avg_views_per_content:,.0f}) ÷ 15 = {view_multiplier:.2f}×
+            • Engagement Multiplier = 1.0 + ({engagement_rate_per_content:.3f} × 2.0) = {engagement_multiplier:.2f}×
+            • User Base Multiplier = 1.0 + ({total_active_users:,} ÷ 1,000,000) × 0.5 = {user_base_multiplier:.2f}×
+            • Total Multiplier = {view_multiplier:.2f} × {engagement_multiplier:.2f} × {user_base_multiplier:.2f} = {total_content_multiplier:.2f}×
+            
+            Base Minimum VCOIN per Content = Target Final Reward ÷ Total Multiplier
+            Base VCOIN = {target_final_reward_per_content:,.0f} ÷ {total_content_multiplier:.2f} = {base_vcoin_per_content:,.0f} VCOIN
+            
+            Final VCOIN per Content = Base × Total Multiplier
+            Final VCOIN = {base_vcoin_per_content:,.0f} × {total_content_multiplier:.2f} = {target_final_reward_per_content:,.0f} VCOIN
             ```
             
             #### **Step 4: Total Minting (Content-Driven)**
@@ -1578,14 +1666,24 @@ def reverse_simulation_interface():
             • Total per Content: {required_vcoin_per_content:,.0f} VCOIN
             ```
             
-            #### **Step 8: Your Engagement Input Validation**
+            #### **Step 8: Multiplier Impact Analysis**
             ```
-            Monthly Engagement Breakdown:
-            • Views: {total_monthly_views:,}
-            • Likes: {total_monthly_likes:,} ({total_monthly_likes/total_monthly_views:.1%} of views)
-            • Shares: {total_monthly_shares:,} ({total_monthly_shares/total_monthly_views:.1%} of views)
-            • Comments: {total_monthly_comments:,} ({total_monthly_comments/total_monthly_views:.1%} of views)
-            • Total Engagement: {total_monthly_engagement:,} ({monthly_engagement_rate:.1%} rate)
+            Per-Content Averages from Your Input:
+            • Avg Views per Content: {avg_views_per_content:,.0f}
+            • Avg Likes per Content: {avg_likes_per_content:,.0f}
+            • Avg Shares per Content: {avg_shares_per_content:,.0f}
+            • Avg Comments per Content: {avg_comments_per_content:,.0f}
+            • Engagement Rate per Content: {engagement_rate_per_content:.1%}
+            
+            Multiplier Calculations:
+            • View Multiplier = 1.0 + log10({avg_views_per_content:,.0f}) ÷ 15 = {view_multiplier:.3f}×
+            • Engagement Multiplier = 1.0 + ({engagement_rate_per_content:.3f} × 2.0) = {engagement_multiplier:.3f}×
+            • User Base Multiplier = 1.0 + ({total_active_users:,} ÷ 1,000,000) × 0.5 = {user_base_multiplier:.3f}×
+            • Total Multiplier = {view_multiplier:.3f} × {engagement_multiplier:.3f} × {user_base_multiplier:.3f} = {total_content_multiplier:.3f}×
+            
+            Final Calculation:
+            • Base Minimum VCOIN = {base_vcoin_per_content:,.0f} VCOIN (constant for all content)
+            • Enhanced VCOIN = {base_vcoin_per_content:,.0f} × {total_content_multiplier:.3f} = {required_vcoin_per_content:,.0f} VCOIN
             ```
             """)
         
