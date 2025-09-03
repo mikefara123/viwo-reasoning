@@ -22,35 +22,130 @@ except ImportError:
     print("Please run: pip install -r requirements.txt")
     exit(1)
 
-# Page configuration
+# Enhanced page configuration for optimal layout
 st.set_page_config(
     page_title="VCOIN Economic Playground",
     page_icon="🪙",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/mikefara123/viwo-reasoning',
+        'Report a bug': 'https://github.com/mikefara123/viwo-reasoning/issues',
+        'About': 'VCOIN Economic Playground - Professional tokenomics simulation suite'
+    }
 )
 
-# Custom CSS for better styling
+# Enhanced CSS for better styling and wide layout
 st.markdown("""
 <style>
+    /* Ensure full width utilization */
+    .main .block-container {
+        max-width: none !important;
+        padding-top: 1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    /* Header styling */
     .main-header {
         font-size: 3rem;
         color: #1f77b4;
         text-align: center;
         margin-bottom: 2rem;
     }
+    
+    /* Metric cards */
     .metric-card {
         background-color: #f0f2f6;
         padding: 1rem;
         border-radius: 0.5rem;
         margin: 0.5rem 0;
     }
+    
+    /* Success boxes */
     .success-box {
         background-color: #d4edda;
         border: 1px solid #c3e6cb;
         border-radius: 0.25rem;
         padding: 1rem;
         margin: 1rem 0;
+    }
+    
+    /* Sidebar styling */
+    .sidebar .sidebar-content {
+        width: 280px;
+    }
+    
+    /* Table styling for better readability */
+    .dataframe {
+        font-size: 0.9rem;
+    }
+    
+    /* Column spacing */
+    .row-widget.stHorizontal > div {
+        padding-right: 0.5rem;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: none;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+    }
+    
+    /* Input field styling */
+    .stNumberInput > div > div > input {
+        border-radius: 0.5rem;
+    }
+    
+    .stSelectbox > div > div {
+        border-radius: 0.5rem;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        font-weight: 600;
+        border-radius: 0.5rem;
+    }
+    
+    /* Fix narrow content issues */
+    .main > div {
+        max-width: none !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    
+    /* Ensure dataframes use full width */
+    .dataframe {
+        width: 100% !important;
+    }
+    
+    /* Fix column spacing */
+    .element-container {
+        width: 100% !important;
+    }
+    
+    /* Improve chart sizing */
+    .js-plotly-plot {
+        width: 100% !important;
+    }
+    
+    /* Fix metric display */
+    [data-testid="metric-container"] {
+        width: 100% !important;
+        margin: 0.25rem 0 !important;
+    }
+    
+    /* Improve table readability */
+    .stDataFrame {
+        width: 100% !important;
+    }
+    
+    /* Fix button layouts */
+    .stButton {
+        width: 100% !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1799,7 +1894,7 @@ def reverse_simulation_interface():
         })
         
         comparison_df = pd.DataFrame(comparison_summary)
-        st.table(comparison_df)
+        st.dataframe(comparison_df, width="stretch", height=200)
         
         # Key insights
         st.markdown("**💡 Key Platform Insights:**")
@@ -3903,7 +3998,7 @@ def price_discovery_interface():
             })
         
         method_df = pd.DataFrame(method_data)
-        st.table(method_df)
+        st.dataframe(method_df, width="stretch", height=300)
         
         # Price sensitivity analysis
         st.subheader("📊 Price Sensitivity Analysis")
@@ -3923,7 +4018,7 @@ def price_discovery_interface():
             })
         
         sensitivity_df = pd.DataFrame(sensitivity_data)
-        st.table(sensitivity_df)
+        st.dataframe(sensitivity_df, width="stretch", height=200)
 
 def economy_scale_simulator_interface():
     """Comprehensive economy analysis across different user scales and engagement scenarios"""
@@ -4353,7 +4448,7 @@ def economy_scale_simulator_interface():
         }
         
         comparison_df = pd.DataFrame(comparison_data)
-        st.table(comparison_df)
+        st.dataframe(comparison_df, width="stretch", height=300)
         
         # Detailed phase analysis
         st.subheader("📊 Detailed Phase Analysis")
@@ -4468,7 +4563,7 @@ def economy_scale_simulator_interface():
             })
         
         scaling_df = pd.DataFrame(scaling_analysis)
-        st.table(scaling_df)
+        st.dataframe(scaling_df, width="stretch", height=200)
         
         # Key insights
         st.markdown("---")
@@ -5097,7 +5192,7 @@ def content_calculator_interface():
             }
             
             dist_df = pd.DataFrame(distribution_data)
-            st.table(dist_df)
+            st.dataframe(dist_df, width="stretch")
             
             # Individual user rewards
             if shares + total_viewers + likes + dislikes + comments > 0:
@@ -5128,7 +5223,7 @@ def content_calculator_interface():
                 }
                 
                 individual_df = pd.DataFrame(individual_data)
-                st.table(individual_df)
+                st.dataframe(individual_df, width="stretch")
                 
                 # Quality impact analysis
                 st.subheader("📈 Quality Impact Analysis")
@@ -5416,7 +5511,7 @@ def ab_comparison_interface():
         }
         
         comp_df = pd.DataFrame(comparison_data)
-        st.table(comp_df)
+        st.dataframe(comp_df, width="stretch", height=400)
         
         # Overall recommendation
         overall_winner = "A" if comparison['scenario_a']['health_score'] > comparison['scenario_b']['health_score'] else "B"
@@ -5622,7 +5717,7 @@ def display_detailed_breakdown(df: pd.DataFrame, params: Dict[str, Any]):
     }
     
     summary_df = pd.DataFrame(summary_data)
-    st.table(summary_df)
+    st.dataframe(summary_df, width="stretch", height=300)
 
 def export_simulation_data(df: pd.DataFrame, params: Dict[str, Any]):
     """Export simulation data for external analysis"""
