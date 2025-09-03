@@ -1292,6 +1292,47 @@ def reverse_simulation_interface():
     - Engagement per Day: {total_monthly_engagement / 30:,.0f}
     """)
     
+    # Formula overview
+    with st.expander("🧮 Content-Driven Formula Overview", expanded=False):
+        st.markdown("""
+        **🎯 Content-Driven Reverse Calculation Logic:**
+        
+        **Traditional Model Problems:**
+        - Rewards based on % of total supply (dilutes with growth)
+        - Fixed daily minting regardless of content creation
+        - No direct connection between content and token supply
+        
+        **Content-Driven Model Solution:**
+        - **Fixed base reward per content piece** (constant value)
+        - **Minting tied directly to content creation** (organic scaling)
+        - **Quality multipliers on top of base** (incentivizes better content)
+        - **Burns scale with activity** (automatic economic balance)
+        
+        **Key Reverse Calculation Steps:**
+        ```
+        1. Creator Metrics:
+           Estimated Creators = Total Users × 2.5%
+           Daily Posts = (Creators × Posts/Month) ÷ 30
+        
+        2. Target Conversion:
+           Creator Daily Target = Monthly Target ÷ 30
+           Creator Tokens/Day = Daily Target ÷ Token Price
+        
+        3. Required VCOIN per Content:
+           VCOIN per Content = (Creator Tokens/Day ÷ Posts/Day) ÷ Creator Share (40%)
+        
+        4. Total Minting:
+           Daily Minting = Daily Posts × VCOIN per Content
+           Monthly Minting = Daily Minting × 30
+        
+        5. Required Burns:
+           Daily Burns = Daily Minting × 75% (for balance)
+           Net Flow = Minting - Burns (controlled inflation)
+        ```
+        
+        **Result**: Linear scaling where 10× content = 10× total rewards!
+        """)
+    
     # Calculate button
     if st.button("🧮 Calculate Content-Driven Parameters", type="primary", key="reverse_calc"):
         
@@ -1445,6 +1486,108 @@ def reverse_simulation_interface():
                 st.success(f"✅ Consumer Target: {consumer_achievement:.1%} achieved")
             else:
                 st.warning(f"⚠️ Consumer Target: Only {consumer_achievement:.1%} achieved")
+        
+        # Detailed calculation formula explanation
+        st.markdown("---")
+        st.subheader("🧮 Detailed Calculation Formula")
+        st.markdown("**Step-by-step breakdown of how content-driven parameters are calculated**")
+        
+        with st.expander("📋 Complete Formula with Your Values", expanded=True):
+            st.markdown(f"""
+            #### **Step 1: Creator & Content Metrics**
+            ```
+            Estimated Creators = Total Users × 2.5%
+            Estimated Creators = {total_active_users:,} × 0.025 = {estimated_creators:,} creators
+            
+            Total Monthly Posts = Creators × Posts per Creator
+            Total Monthly Posts = {estimated_creators:,} × {target_posts_per_month} = {total_monthly_posts:,.0f} posts
+            
+            Daily Posts = Monthly Posts ÷ 30
+            Daily Posts = {total_monthly_posts:,.0f} ÷ 30 = {daily_posts:,.0f} posts/day
+            ```
+            
+            #### **Step 2: Target Earnings Conversion**
+            ```
+            Creator Daily Target = Monthly Target ÷ 30
+            Creator Daily Target = ${target_creator_monthly_usd:,} ÷ 30 = ${target_creator_daily_usd:,.2f}/day
+            
+            Creator Tokens per Day = Daily Target ÷ Token Price
+            Creator Tokens per Day = ${target_creator_daily_usd:,.2f} ÷ ${assumed_token_price:.7f} = {creator_tokens_per_day:,.0f} VCOIN
+            
+            Creator Posts per Day = Monthly Posts ÷ 30
+            Creator Posts per Day = {target_posts_per_month} ÷ 30 = {creator_posts_per_day:.1f} posts/day
+            ```
+            
+            #### **Step 3: Required VCOIN per Content**
+            ```
+            Creator Share = 40% of each content reward
+            
+            Required VCOIN per Content = (Creator Tokens/Day ÷ Creator Posts/Day) ÷ Creator Share
+            Required VCOIN per Content = ({creator_tokens_per_day:,.0f} ÷ {creator_posts_per_day:.1f}) ÷ 0.40
+            Required VCOIN per Content = {required_vcoin_per_content:,.0f} VCOIN per content piece
+            ```
+            
+            #### **Step 4: Total Minting (Content-Driven)**
+            ```
+            Total Daily Minting = Daily Posts × VCOIN per Content
+            Total Daily Minting = {daily_posts:,.0f} × {required_vcoin_per_content:,.0f} = {total_daily_minting:,.0f} VCOIN/day
+            
+            Monthly Minting = Daily Minting × 30
+            Monthly Minting = {total_daily_minting:,.0f} × 30 = {monthly_minting:,.0f} VCOIN/month
+            ```
+            
+            #### **Step 5: Consumer Engagement Economics**
+            ```
+            Consumer Daily Target = Monthly Target ÷ 30
+            Consumer Daily Target = ${target_consumer_monthly_usd:,} ÷ 30 = ${target_consumer_daily_usd:,.2f}/day
+            
+            Total Consumer Tokens Daily = Consumer Target × Total Users ÷ Token Price
+            Total Consumer Tokens Daily = ${target_consumer_daily_usd:,.2f} × {total_active_users:,} ÷ ${assumed_token_price:.7f}
+            Total Consumer Tokens Daily = {total_consumer_tokens_daily:,.0f} VCOIN
+            
+            Consumer Tokens per Content = Total Consumer Tokens ÷ Daily Posts
+            Consumer Tokens per Content = {total_consumer_tokens_daily:,.0f} ÷ {daily_posts:,.0f} = {engagement_tokens_per_content:,.2f} VCOIN
+            
+            Engagement Share Needed = Consumer Tokens per Content ÷ VCOIN per Content
+            Engagement Share Needed = {engagement_tokens_per_content:,.2f} ÷ {required_vcoin_per_content:,.0f} = {engagement_share_needed:.1%}
+            ```
+            
+            #### **Step 6: Burn Requirements for 30-Day Balance**
+            ```
+            Target Burn Rate = 75% (for economic balance)
+            
+            Required Daily Burns = Daily Minting × Burn Rate
+            Required Daily Burns = {total_daily_minting:,.0f} × 0.75 = {required_daily_burns:,.0f} VCOIN/day
+            
+            Monthly Burns = Daily Burns × 30
+            Monthly Burns = {required_daily_burns:,.0f} × 30 = {monthly_burns:,.0f} VCOIN/month
+            
+            Net Monthly Flow = Monthly Minting - Monthly Burns
+            Net Monthly Flow = {monthly_minting:,.0f} - {monthly_burns:,.0f} = {net_monthly_flow:+,.0f} VCOIN
+            
+            Monthly Inflation Rate = Net Flow ÷ Monthly Minting
+            Monthly Inflation Rate = {net_monthly_flow:,.0f} ÷ {monthly_minting:,.0f} = {(net_monthly_flow / monthly_minting) * 100:+.1f}%
+            ```
+            
+            #### **Step 7: Content Reward Distribution**
+            ```
+            Per Content Reward Breakdown:
+            • Creator (40%): {required_vcoin_per_content:,.0f} × 0.40 = {creator_reward_per_content:,.0f} VCOIN
+            • Engagement ({engagement_share_needed:.1%}): {required_vcoin_per_content:,.0f} × {engagement_share_needed:.3f} = {engagement_tokens_per_content:,.0f} VCOIN
+            • Platform (10%): {required_vcoin_per_content:,.0f} × 0.10 = {required_vcoin_per_content * 0.10:,.0f} VCOIN
+            • Total per Content: {required_vcoin_per_content:,.0f} VCOIN
+            ```
+            
+            #### **Step 8: Your Engagement Input Validation**
+            ```
+            Monthly Engagement Breakdown:
+            • Views: {total_monthly_views:,}
+            • Likes: {total_monthly_likes:,} ({total_monthly_likes/total_monthly_views:.1%} of views)
+            • Shares: {total_monthly_shares:,} ({total_monthly_shares/total_monthly_views:.1%} of views)
+            • Comments: {total_monthly_comments:,} ({total_monthly_comments/total_monthly_views:.1%} of views)
+            • Total Engagement: {total_monthly_engagement:,} ({monthly_engagement_rate:.1%} rate)
+            ```
+            """)
         
         # Key recommendations
         st.subheader("💡 Implementation Recommendations")
