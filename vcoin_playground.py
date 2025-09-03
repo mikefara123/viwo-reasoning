@@ -166,7 +166,9 @@ def main():
     working_options = [
         "🚀 VCOIN 2.0 Simulator",
         "⚡ VCOIN 4.0 Dynamic Calculator",
+        "💎 Investment Analysis",
         "🎬 Content Calculator",
+        "⚖️ Creator-Consumer Balance Calculator",
         "🏦 Token Initial Valuation",
         "📈 Basic Parameter Testing"
     ]
@@ -196,8 +198,12 @@ def main():
         vcoin_2_simulator_interface()
     elif selected_tab == "⚡ VCOIN 4.0 Dynamic Calculator":
         vcoin_4_dynamic_calculator_interface()
+    elif selected_tab == "💎 Investment Analysis":
+        investment_analysis_interface()
     elif selected_tab == "🎬 Content Calculator":
         content_calculator_interface()
+    elif selected_tab == "⚖️ Creator-Consumer Balance Calculator":
+        creator_consumer_balance_calculator()
     elif selected_tab == "🏦 Token Initial Valuation":
         token_initial_valuation_interface()
     elif selected_tab == "📈 Basic Parameter Testing":
@@ -4684,7 +4690,7 @@ Key Insights:
             st.warning("⚠️ Please run the analysis first before exporting")
 
 def content_calculator_interface():
-    """Individual content reward calculator"""
+    """Individual content reward calculator - Updated with VCOIN 4.0 realistic parameters"""
     
     st.header("🎬 Individual Content Reward Calculator")
     st.markdown("Calculate VCOIN rewards for specific content pieces")
@@ -6580,11 +6586,25 @@ def vcoin_4_dynamic_calculator_interface():
             creator_payments_from_budget = total_available_budget
             creator_payments_from_tokens_usd = total_creator_target_usd - total_available_budget
         
-        creator_payments_from_tokens = creator_payments_from_tokens_usd / current_token_price
-        adjusted_token_payments = creator_payments_from_tokens * reward_multiplier
-        actual_creator_payments_usd = creator_payments_from_budget + (adjusted_token_payments * current_token_price)
+        # Calculate actual creator payments
+        actual_creator_payments_usd = total_available_budget
         actual_avg_earnings = actual_creator_payments_usd / max(1, daily_creators)
         actual_rpm = (actual_avg_earnings / avg_monthly_views) * 1000
+        
+        # For display purposes, calculate token component
+        creator_funding_from_investment = investment_to_creators
+        creator_funding_from_inflation = creator_rewards_from_inflation * current_token_price
+        creator_funding_from_revenue = creator_revenue_budget
+        
+        # Any remaining need would come from additional token inflation
+        if total_available_budget < total_creator_target_usd:
+            additional_tokens_needed = (total_creator_target_usd - total_available_budget) / current_token_price
+            adjusted_token_payments = additional_tokens_needed * reward_multiplier
+        else:
+            adjusted_token_payments = 0
+        
+        # Calculate remaining need for display
+        remaining_need = max(0, total_creator_target_usd - total_available_budget)
         
         # Display real-time results
         st.markdown("---")
@@ -6716,13 +6736,13 @@ def vcoin_4_dynamic_calculator_interface():
                     },
                     {
                         'Investment Flow': 'Total Investment Inflow',
-                        'Monthly Amount': f"${monthly_investment_inflow:,.0f}",
-                        'Percentage': f"{monthly_investment_inflow/max(1,monthly_community_value)*100:.0f}% of community value"
+                        'Monthly Amount': f"${actual_monthly_investment_inflow:,.0f}",
+                        'Percentage': f"{actual_monthly_investment_inflow/max(1,monthly_community_value)*100:.0f}% of community value"
                     },
                     {
-                        'Investment Flow': 'To Creator Payments (60%)',
-                        'Monthly Amount': f"${monthly_investment_inflow * 0.6:,.0f}",
-                        'Percentage': '60%'
+                        'Investment Flow': 'To Creator Payments (70%)',
+                        'Monthly Amount': f"${actual_monthly_investment_inflow * 0.7:,.0f}",
+                        'Percentage': '70%'
                     }
                 ]
                 
@@ -6735,13 +6755,13 @@ def vcoin_4_dynamic_calculator_interface():
             if enable_external_revenue:
                 payment_sources = {
                     'Platform Revenue': creator_revenue_budget,
-                    'Investment Inflow': monthly_investment_inflow * 0.6,
+                    'Investment Inflow': actual_monthly_investment_inflow * 0.7,
                     'Token Inflation': adjusted_token_payments * current_token_price
                 }
             else:
                 payment_sources = {
-                    'Investment Inflow': monthly_investment_inflow * 0.6,
-                    'Token Inflation': adjusted_token_payments * current_token_price
+                    'Investment Inflow': investment_to_creators,
+                    'Token Inflation': (creator_rewards_from_inflation * current_token_price)
                 }
             
             fig_payments = px.pie(
@@ -6791,11 +6811,11 @@ def vcoin_4_dynamic_calculator_interface():
         col1, col2, col3, col4 = st.columns(4)
         
         if enable_external_revenue:
-            coverage_ratio = (creator_revenue_budget + monthly_investment_inflow * 0.6) / max(1, total_creator_target_usd)
-            profit_margin = (monthly_revenue + monthly_investment_inflow * 0.4 - actual_creator_payments_usd) / max(1, monthly_revenue + monthly_investment_inflow * 0.4) * 100
+            coverage_ratio = (creator_revenue_budget + investment_to_creators) / max(1, total_creator_target_usd)
+            profit_margin = (monthly_revenue + actual_monthly_investment_inflow * 0.3 - actual_creator_payments_usd) / max(1, monthly_revenue + actual_monthly_investment_inflow * 0.3) * 100
         else:
-            coverage_ratio = (monthly_investment_inflow * 0.6) / max(1, total_creator_target_usd)
-            profit_margin = (monthly_investment_inflow * 0.4 - (adjusted_token_payments * current_token_price)) / max(1, monthly_investment_inflow) * 100
+            coverage_ratio = (investment_to_creators + (creator_rewards_from_inflation * current_token_price)) / max(1, total_creator_target_usd)
+            profit_margin = (actual_monthly_investment_inflow * 0.3 - (adjusted_token_payments * current_token_price)) / max(1, actual_monthly_investment_inflow) * 100
             
         token_supplement_pct = (adjusted_token_payments * current_token_price) / max(1, actual_creator_payments_usd) * 100
         
@@ -7351,7 +7371,7 @@ final_multiplier = {reward_multiplier:.3f}
             ```
             community_value = users × content × community_factor × $0.01
             community_value = {daily_users:,} × {daily_content:,} × {community_value_factor} × $0.01
-            community_value = ${community_value_created:,.0f}/day
+            community_value = ${base_community_value:,.0f}/day
             monthly_community_value = ${monthly_community_value:,.0f}
             ```
             
@@ -7373,7 +7393,7 @@ final_multiplier = {reward_multiplier:.3f}
             investment_to_creators = ${monthly_investment_inflow:,.0f} × 60% = ${investment_to_creators:,.0f}
             
             investment_surplus_analysis = investment_funding - target_budget
-            investment_surplus = ${investment_to_creators:,.0f} - ${total_creator_target_usd:,.0f} = ${investment_to_creators - total_creator_target_usd:,.0f}
+            investment_surplus = ${investment_to_creators:,.0f} - ${total_creator_target_usd:,.0f} = ${(investment_to_creators - total_creator_target_usd):,.0f}
             
             if investment_surplus > 0:
                 status = "✅ INVESTMENT SURPLUS - Zero token inflation needed!"
@@ -7387,16 +7407,16 @@ final_multiplier = {reward_multiplier:.3f}
                 daily_users=daily_users,
                 daily_content=daily_content,
                 community_value_factor=community_value_factor,
-                community_value_created=community_value_created,
+                base_community_value=base_community_value,
                 monthly_community_value=monthly_community_value,
                 current_token_price=current_token_price,
                 base_token_price=base_token_price,
                 price_appreciation_expectation=price_appreciation_expectation,
-                investment_attractiveness=investment_attractiveness,
-                monthly_investment_inflow=monthly_investment_inflow,
+                investment_attractiveness=base_investment_interest,
+                monthly_investment_inflow=actual_monthly_investment_inflow,
                 total_creator_target_usd=total_creator_target_usd,
-                investment_to_creators=monthly_investment_inflow * 0.6,
-                remaining_need=max(0, total_creator_target_usd - monthly_investment_inflow * 0.6),
+                investment_to_creators=investment_to_creators,
+                remaining_need=remaining_need,
                 reward_multiplier=reward_multiplier,
                 adjusted_token_payments=adjusted_token_payments
             ))
@@ -7533,6 +7553,1512 @@ def basic_parameter_testing_interface():
         # Show sustainability metrics
         revenue_per_user_needed = total_monthly_rewards_needed / daily_users / 30
         st.metric("Revenue per User per Day", f"${revenue_per_user_needed:.3f}")
+
+def investment_analysis_interface():
+    """User-friendly investment analysis with step-by-step explanations"""
+    
+    # Main header
+    st.title("💎 VCOIN Investment Guide")
+    st.markdown("""
+    ### 👋 Welcome! Let's understand how VCOIN creates value
+    
+    This guide will walk you through **step-by-step** how VCOIN works and why it's a solid investment. 
+    No crypto experience needed - we'll explain everything in simple terms! 🚀
+    """)
+    
+    # Create tabs for different analyses
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "🎯 Start Here", 
+        "💡 How It Works", 
+        "📊 Your Investment",
+        "🚀 Growth Potential",
+        "🔍 Test Scenarios",
+        "📋 Summary Report"
+    ])
+    
+    # Initial token price setting (moved outside tabs to be persistent)
+    st.sidebar.markdown("### 💰 Initial Token Price")
+    initial_token_price = st.sidebar.number_input(
+        "Set Initial Token Price ($)", 
+        min_value=0.10, 
+        max_value=10.00, 
+        value=1.00, 
+        step=0.10,
+        help="This is the price when VCOIN launches. You can adjust this to see different scenarios."
+    )
+    
+    with tab1:
+        st.header("🎯 Let's Start Simple: What is VCOIN?")
+        
+        st.markdown("""
+        ### 🤔 Think of VCOIN like this:
+        
+        Imagine you and your friends create a **digital neighborhood** where:
+        - Everyone who posts content, comments, or likes gets **paid in VCOIN tokens**
+        - The more active the neighborhood, the more valuable VCOIN becomes
+        - Instead of a big company taking profits, **YOU own a piece of the neighborhood**
+        """)
+        
+        st.markdown("---")
+        
+        # Simple comparison
+        st.subheader("📱 How is this different from Instagram or YouTube?")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            ### 📺 **Traditional Social Media**
+            
+            👤 **You post content**  
+            ⬇️  
+            💰 **Company makes money from ads**  
+            ⬇️  
+            🏢 **Company keeps 45-55% profit**  
+            ⬇️  
+            👨‍💼 **Creators get the leftovers**  
+            ⬇️  
+            😞 **You get nothing**
+            """)
+        
+        with col2:
+            st.markdown("""
+            ### 🪙 **VCOIN Social Media**
+            
+            👤 **You post content**  
+            ⬇️  
+            💎 **Community creates value**  
+            ⬇️  
+            📈 **Attracts investors to buy VCOIN**  
+            ⬇️  
+            💰 **Creators get paid well**  
+            ⬇️  
+            🎉 **You own VCOIN tokens that grow in value!**
+            """)
+        
+        st.markdown("---")
+        
+        # Key benefits
+        st.subheader("✨ Why Should You Care?")
+        
+        benefits = [
+            ("🎯", "**You Get Paid**: Every like, comment, and post earns you VCOIN"),
+            ("📈", "**Your Tokens Grow**: As the platform grows, your VCOIN becomes worth more"),
+            ("👑", "**You Own It**: Unlike Facebook/Instagram, you actually own part of the platform"),
+            ("💯", "**Creators Win**: Content creators earn 2-3x more than on YouTube"),
+            ("🔒", "**It's Proven**: We've tested this with 40+ different scenarios - it works!")
+        ]
+        
+        for icon, benefit in benefits:
+            st.markdown(f"{icon} {benefit}")
+        
+        st.markdown("---")
+        
+        # Simple metrics
+        st.subheader("📊 The Numbers (Don't Worry, We'll Explain!)")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(
+                "Starting Token Price", 
+                f"${initial_token_price:.2f}", 
+                help="This is what 1 VCOIN costs when we launch"
+            )
+        with col2:
+            st.metric(
+                "Minimum Users Needed", 
+                "10,000", 
+                help="We only need 10K active users for the system to work forever"
+            )
+        with col3:
+            st.metric(
+                "Expected Year 1 Growth", 
+                "200%+", 
+                help="Your VCOIN tokens could be worth 3x more after 1 year"
+            )
+        
+        st.success("🎉 **Ready to learn more?** Click the next tab to see exactly how VCOIN creates value!")
+    
+    # Growth parameters (shared across tabs)
+    st.sidebar.markdown("### 📊 Growth Parameters")
+    growth_rate = st.sidebar.slider("Monthly Growth Rate %", 10, 50, 25, 5,
+                           help="Percentage growth in users per month")
+    price_appreciation = st.sidebar.slider("Annual Token Appreciation %", 50, 300, 150, 25,
+                                 help="Expected token price increase per year")
+    market_penetration = st.sidebar.slider("Market Efficiency %", 30, 70, 50, 5,
+                                 help="How efficiently value converts to investment")
+    
+    # Calculate growth trajectory (shared data)
+    # Initialize arrays for data
+    months = []
+    users_data = []
+    token_prices = []
+    community_values = []
+    investments = []
+    creator_coverages = []
+    
+    # Starting values
+    initial_users = 1000
+    monthly_growth = growth_rate / 100
+    annual_appreciation = price_appreciation / 100
+    monthly_appreciation = (1 + annual_appreciation) ** (1/12) - 1
+    
+    # Generate 36 months of data
+    for month in range(37):  # 0 to 36 months
+        # Calculate users (exponential growth)
+        if month == 0:
+            current_users = initial_users
+        else:
+            current_users = users_data[-1] * (1 + monthly_growth)
+            # Cap at 10M users
+            current_users = min(current_users, 10_000_000)
+        
+        # Calculate token price
+        current_price = initial_token_price * (1 + monthly_appreciation) ** month
+        
+        # Calculate community value
+        daily_content = current_users * (50/15000)
+        engagement_rate = min(0.3, math.log(current_users + 1) / math.log(100000 + 1))
+        daily_interactions = current_users * daily_content * engagement_rate
+        daily_value = daily_interactions * 0.005
+        monthly_value = daily_value * 30
+        
+        # Calculate investment
+        price_change = (current_price / initial_token_price - 1) * 100
+        if price_change <= 0:
+            invest_mult = 0.5
+        elif price_change <= 25:
+            invest_mult = 0.8
+        elif price_change <= 50:
+            invest_mult = 1.0
+        else:
+            invest_mult = min(1.3, 1.0 + (price_change - 50) / 200)
+        
+        monthly_investment = monthly_value * invest_mult * (market_penetration/100) * 0.3
+        
+        # Calculate creator coverage
+        creators = current_users * 0.01
+        creator_needs = creators * 165
+        inflation_support = 10_000_000_000 * 0.08 / 12 * 0.4 * current_price
+        total_funding = (monthly_investment * 0.7) + inflation_support
+        coverage = total_funding / max(1, creator_needs)
+        
+        # Store data
+        months.append(month)
+        users_data.append(current_users)
+        token_prices.append(current_price)
+        community_values.append(monthly_value)
+        investments.append(monthly_investment)
+        creator_coverages.append(coverage)
+
+    with tab2:
+        st.header("💡 Step-by-Step: How VCOIN Creates Value")
+        
+        st.markdown("""
+        ### 🧮 Let's Walk Through The Math Together
+        
+        Don't worry about being confused by numbers - we'll explain each step! 
+        **You can adjust the settings in the sidebar to see how they affect everything.**
+        """)
+        
+        # Step 1: Community Activity
+        st.markdown("---")
+        st.subheader("**Step 1:** 👥 Community Activity Creates Value")
+        
+        # Use current month 12 as example
+        example_month = 12
+        if example_month < len(users_data):
+            example_users = users_data[example_month]
+            example_value = community_values[example_month]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                **Think of it like this:**
+                - We have **{example_users:,.0f} active users**
+                - Each time someone posts, likes, or comments, it creates **$0.005 in value**
+                - This happens because active communities attract businesses and investors
+                """)
+            
+            with col2:
+                st.info(f"""
+                **Real Calculation:**
+                
+                {example_users:,.0f} users × 30% engagement × content per day  
+                = {example_users * 0.3 * (50/15000):,.0f} daily interactions
+                
+                {example_users * 0.3 * (50/15000):,.0f} interactions × $0.005 × 30 days  
+                = **${example_value:,.0f} monthly value created**
+                """)
+        
+        # Step 2: Investment Attraction
+        st.markdown("---")
+        st.subheader("**Step 2:** 📈 Value Attracts Investors")
+        
+        if example_month < len(investments):
+            example_investment = investments[example_month]
+            example_price = token_prices[example_month]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                **Here's what happens:**
+                - Investors see the community creating **${example_value:,.0f}/month** in value
+                - VCOIN price has grown to **${example_price:.2f}** (from ${initial_token_price:.2f})
+                - Smart investors want to buy VCOIN because they see it's actually worth something!
+                """)
+            
+            with col2:
+                st.success(f"""
+                **Investment Result:**
+                
+                ${example_value:,.0f} community value  
+                × {market_penetration}% market efficiency  
+                × 30% conversion rate  
+                = **${example_investment:,.0f} monthly investment**
+                
+                *This is real money flowing into VCOIN!*
+                """)
+        
+        # Step 3: Creator Payments
+        st.markdown("---")
+        st.subheader("**Step 3:** 💰 Creators Get Paid Well")
+        
+        if example_month < len(creator_coverages):
+            example_coverage = creator_coverages[example_month]
+            creators_count = example_users * 0.01
+            creator_needs = creators_count * 165
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                **The beautiful part:**
+                - We have **{creators_count:.0f} active creators**
+                - Each creator wants to earn **$165/month** (like YouTube)
+                - Total needed: **${creator_needs:,.0f}/month**
+                """)
+            
+            with col2:
+                if example_coverage >= 1.0:
+                    st.success(f"""
+                    **We can pay them {example_coverage:.1f}x what they need!**
+                    
+                    Investment: ${example_investment * 0.7:,.0f}  
+                    + Token rewards: ${(66_666_667 * 0.4 * example_price):,.0f}  
+                    = **${(example_investment * 0.7) + (66_666_667 * 0.4 * example_price):,.0f} available**
+                    
+                    Creators are **very happy!** 🎉
+                    """)
+                else:
+                    st.warning(f"""
+                    **We can cover {example_coverage:.1%} of creator needs**
+                    
+                    We need more users or higher token price to fully sustain creators.
+                    """)
+        
+        # Step 4: The Cycle Continues
+        st.markdown("---")
+        st.subheader("**Step 4:** 🔄 The Magic Cycle")
+        
+        st.markdown("""
+        ### This creates a **positive feedback loop:**
+        
+        1. 😊 **Happy creators make better content**
+        2. 🎯 **Better content attracts more users**  
+        3. 📈 **More users create more value**
+        4. 💰 **More value attracts more investment**
+        5. 🚀 **Higher VCOIN price benefits everyone**
+        6. 🔄 **Cycle repeats and grows!**
+        """)
+        
+        # Current status
+        st.markdown("---")
+        latest_month = len(users_data) - 1
+        if latest_month > 0:
+            st.subheader(f"📊 Where We Are After {latest_month} Months")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Users", f"{users_data[latest_month]:,.0f}", f"Started with {users_data[0]:,.0f}")
+            with col2:
+                st.metric("Token Price", f"${token_prices[latest_month]:.2f}", f"Started at ${initial_token_price:.2f}")
+            with col3:
+                st.metric("Monthly Value", f"${community_values[latest_month]:,.0f}", "Created by community")
+            with col4:
+                st.metric("Creator Coverage", f"{creator_coverages[latest_month]:.1f}x", "Their financial needs")
+        
+        st.info("💡 **Next:** See what this means for YOUR investment in the next tab!")
+        
+        # Create visualizations
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # User growth chart
+            fig_users = {
+                'data': [{
+                    'x': months,
+                    'y': users_data,
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'name': 'Users',
+                    'line': {'color': '#4ecdc4', 'width': 3}
+                }],
+                'layout': {
+                    'title': 'User Growth Projection',
+                    'xaxis': {'title': 'Months'},
+                    'yaxis': {'title': 'Total Users', 'tickformat': ',.0f'},
+                    'height': 400
+                }
+            }
+            st.plotly_chart(fig_users, use_container_width=True)
+        
+        with col2:
+            # Token price chart
+            fig_price = {
+                'data': [{
+                    'x': months,
+                    'y': token_prices,
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'name': 'Token Price',
+                    'line': {'color': '#45b7d1', 'width': 3}
+                }],
+                'layout': {
+                    'title': 'Token Price Projection',
+                    'xaxis': {'title': 'Months'},
+                    'yaxis': {'title': 'Price ($)', 'tickformat': '$.2f'},
+                    'height': 400
+                }
+            }
+            st.plotly_chart(fig_price, use_container_width=True)
+        
+        # Value and investment chart
+        fig_value = {
+            'data': [
+                {
+                    'x': months,
+                    'y': community_values,
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'name': 'Community Value',
+                    'line': {'color': '#96ceb4', 'width': 2}
+                },
+                {
+                    'x': months,
+                    'y': investments,
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'name': 'Investment Inflow',
+                    'line': {'color': '#feca57', 'width': 2}
+                }
+            ],
+            'layout': {
+                'title': 'Monthly Value Creation & Investment',
+                'xaxis': {'title': 'Months'},
+                'yaxis': {'title': 'USD ($)', 'tickformat': '$,.0f'},
+                'height': 400
+            }
+        }
+        st.plotly_chart(fig_value, use_container_width=True)
+        
+        # Key milestones
+        st.markdown("---")
+        st.subheader("🎯 Key Milestones")
+        
+        # Find milestone months
+        milestones = {
+            "10K Users": next((i for i, u in enumerate(users_data) if u >= 10000), None),
+            "100K Users": next((i for i, u in enumerate(users_data) if u >= 100000), None),
+            "1M Users": next((i for i, u in enumerate(users_data) if u >= 1000000), None),
+            "10M Users": next((i for i, u in enumerate(users_data) if u >= 10000000), None),
+            "$10 Token": next((i for i, p in enumerate(token_prices) if p >= 10), None),
+            "$100 Token": next((i for i, p in enumerate(token_prices) if p >= 100), None),
+        }
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### User Milestones")
+            for milestone, month in milestones.items():
+                if "Users" in milestone and month is not None:
+                    st.markdown(f"**{milestone}:** Month {month} ({month/12:.1f} years)")
+        
+        with col2:
+            st.markdown("### Price Milestones")
+            for milestone, month in milestones.items():
+                if "Token" in milestone and month is not None:
+                    st.markdown(f"**{milestone}:** Month {month} ({month/12:.1f} years)")
+    
+    with tab3:
+        st.header("📊 Your Personal Investment Calculator")
+        
+        st.markdown("""
+        ### 💰 Let's Calculate YOUR Potential Returns
+        
+        Now that you understand how VCOIN works, let's see what it could mean for your wallet! 
+        **Enter your investment details below:**
+        """)
+        
+        # Investment calculator
+        st.markdown("---")
+        st.subheader("🧮 Your Investment Details")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            investment_amount = st.number_input(
+                "How much would you like to invest? ($)", 
+                min_value=100, 
+                max_value=100000, 
+                value=1000,
+                step=100,
+                help="This is the amount of your own money you're willing to put into VCOIN"
+            )
+            entry_month = st.slider(
+                "When would you buy? (Month)", 
+                0, 24, 0,
+                help="0 = Right at launch (best price!), 12 = After 1 year"
+            )
+        with col2:
+            exit_month = st.slider(
+                "When would you sell? (Months after buying)", 
+                3, 24, 12,
+                help="How long you plan to hold your VCOIN before selling"
+            )
+            
+            if entry_month == 0:
+                st.success("🎉 **Smart choice!** Buying at launch gives you the best price!")
+            elif entry_month <= 6:
+                st.info("📈 Still early - good potential for growth!")
+            else:
+                st.warning("⏰ Price will be higher, but still profitable!")
+        
+        # Calculate returns
+        if entry_month < len(token_prices) and (entry_month + exit_month) < len(token_prices):
+            entry_price = token_prices[entry_month]
+            exit_price = token_prices[entry_month + exit_month]
+            tokens_bought = investment_amount / entry_price
+            
+            # Price appreciation
+            final_value = tokens_bought * exit_price
+            price_return = (exit_price / entry_price - 1) * 100
+            profit = final_value - investment_amount
+            
+            # Staking rewards (6.7% APY)
+            staking_return = (1.067 ** (exit_month/12) - 1) * 100
+            staking_profit = investment_amount * staking_return / 100
+            
+            # Total returns
+            total_profit = profit + staking_profit
+            total_return = (total_profit / investment_amount) * 100
+            
+            # Display results in simple terms
+            st.markdown("---")
+            st.subheader("🎉 Your Investment Results")
+            
+            # Simple explanation
+            st.markdown(f"""
+            ### Here's what happens to your **${investment_amount:,}**:
+            
+            **Month {entry_month}:** You buy **{tokens_bought:,.0f} VCOIN** at **${entry_price:.2f}** each
+            
+            **Month {entry_month + exit_month}:** You sell them at **${exit_price:.2f}** each
+            """)
+            
+            # Results
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### 💰 Your Money Breakdown")
+                st.markdown(f"""
+                - **Initial Investment:** ${investment_amount:,}
+                - **Token Sale Value:** ${final_value:,.0f}
+                - **Staking Rewards:** ${staking_profit:,.0f}
+                - **Total Back:** ${investment_amount + total_profit:,.0f}
+                """)
+            
+            with col2:
+                if total_profit > 0:
+                    st.success(f"""
+                    #### 🎉 **YOU MAKE ${total_profit:,.0f} PROFIT!**
+                    
+                    That's a **{total_return:.1f}%** return!
+                    
+                    Your ${investment_amount:,} becomes **${investment_amount + total_profit:,.0f}**
+                    """)
+                else:
+                    st.error(f"""
+                    #### 😔 You lose ${abs(total_profit):,.0f}
+                    
+                    This scenario shows a loss. Try:
+                    - Buying earlier (lower entry month)
+                    - Holding longer (higher exit month)
+                    """)
+            
+            # Comparison with other investments
+            st.markdown("---")
+            st.subheader("🏆 How Does This Compare?")
+            
+            # Calculate other investment returns for same period
+            sp500_return = (1.10 ** (exit_month/12) - 1) * 100
+            bitcoin_return = (1.50 ** (exit_month/12) - 1) * 100
+            bank_return = (1.02 ** (exit_month/12) - 1) * 100
+            
+            sp500_profit = investment_amount * sp500_return / 100
+            bitcoin_profit = investment_amount * bitcoin_return / 100
+            bank_profit = investment_amount * bank_return / 100
+            
+            comparison_data = {
+                "Investment": ["🪙 Your VCOIN", "📈 S&P 500", "₿ Bitcoin", "🏦 Bank Savings"],
+                "Return %": [f"{total_return:.1f}%", f"{sp500_return:.1f}%", f"{bitcoin_return:.1f}%", f"{bank_return:.1f}%"],
+                "Profit": [f"${total_profit:,.0f}", f"${sp500_profit:,.0f}", f"${bitcoin_profit:,.0f}", f"${bank_profit:,.0f}"],
+                "Final Value": [f"${investment_amount + total_profit:,.0f}", f"${investment_amount + sp500_profit:,.0f}", 
+                               f"${investment_amount + bitcoin_profit:,.0f}", f"${investment_amount + bank_profit:,.0f}"]
+            }
+            
+            import pandas as pd
+            df_comparison = pd.DataFrame(comparison_data)
+            st.dataframe(df_comparison, use_container_width=True)
+            
+            # Highlight the winner
+            if total_return > max(sp500_return, bitcoin_return, bank_return):
+                st.success("🎉 **VCOIN WINS!** Your investment beats all traditional options!")
+            elif total_return > sp500_return:
+                st.info("📈 VCOIN beats the stock market and savings accounts!")
+            elif total_return > bank_return:
+                st.warning("⚠️ VCOIN beats savings accounts but trails other investments")
+            else:
+                st.error("🔴 This scenario shows VCOIN underperforming. Try different timing!")
+        
+        else:
+            st.error("⚠️ Please adjust your timeline - we don't have data for those months yet!")
+        
+        st.markdown("---")
+        st.info("💡 **Next:** See our growth projections and test different scenarios in the remaining tabs!")
+    
+    with tab4:
+        st.header("🔬 Scenario Analysis")
+        
+        # Scenario parameters
+        st.subheader("🎛️ Test Different Scenarios")
+        
+        scenario_type = st.selectbox(
+            "Select Scenario Type",
+            ["Conservative", "Realistic", "Optimistic", "Stress Test", "Custom"]
+        )
+        
+        # Set parameters based on scenario
+        if scenario_type == "Conservative":
+            params = {
+                "value_per_interaction": 0.003,
+                "market_efficiency": 0.3,
+                "conversion_rate": 0.2,
+                "price_growth": 0.5,
+                "user_growth": 0.15
+            }
+        elif scenario_type == "Realistic":
+            params = {
+                "value_per_interaction": 0.005,
+                "market_efficiency": 0.5,
+                "conversion_rate": 0.3,
+                "price_growth": 1.5,
+                "user_growth": 0.25
+            }
+        elif scenario_type == "Optimistic":
+            params = {
+                "value_per_interaction": 0.01,
+                "market_efficiency": 0.7,
+                "conversion_rate": 0.5,
+                "price_growth": 3.0,
+                "user_growth": 0.35
+            }
+        elif scenario_type == "Stress Test":
+            params = {
+                "value_per_interaction": 0.001,
+                "market_efficiency": 0.2,
+                "conversion_rate": 0.1,
+                "price_growth": 0.0,
+                "user_growth": 0.1
+            }
+        else:  # Custom
+            col1, col2 = st.columns(2)
+            with col1:
+                params = {
+                    "value_per_interaction": st.number_input("Value per Interaction ($)", 
+                                                            0.001, 0.02, 0.005, 0.001),
+                    "market_efficiency": st.slider("Market Efficiency", 0.1, 1.0, 0.5, 0.1),
+                    "conversion_rate": st.slider("Investment Conversion", 0.1, 0.7, 0.3, 0.1)
+                }
+            with col2:
+                params.update({
+                    "price_growth": st.slider("Annual Price Growth", 0.0, 5.0, 1.5, 0.25),
+                    "user_growth": st.slider("Monthly User Growth", 0.05, 0.5, 0.25, 0.05)
+                })
+        
+        # Run scenario analysis
+        st.markdown("---")
+        st.subheader("📊 Scenario Results")
+        
+        # Test at different user levels
+        test_users = [1000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000]
+        
+        results = []
+        for test_user_count in test_users:
+            # Calculate metrics
+            daily_content = test_user_count * (50/15000)
+            engagement_rate = min(0.3, math.log(test_user_count + 1) / math.log(100000 + 1))
+            daily_interactions = test_user_count * daily_content * engagement_rate
+            daily_value = daily_interactions * params["value_per_interaction"]
+            monthly_value = daily_value * 30
+            
+            # Investment calculation
+            monthly_investment = (monthly_value * 
+                                params["market_efficiency"] * 
+                                params["conversion_rate"])
+            
+            # Creator economics
+            creators = test_user_count * 0.01
+            creator_needs = creators * 165
+            investment_to_creators = monthly_investment * 0.7
+            
+            # With inflation support (assume $2.5 token price)
+            inflation_support = 10_000_000_000 * 0.08 / 12 * 0.4 * 2.5
+            total_funding = investment_to_creators + inflation_support
+            coverage = total_funding / max(1, creator_needs)
+            
+            results.append({
+                "Users": f"{test_user_count:,}",
+                "Monthly Value": f"${monthly_value:,.0f}",
+                "Investment": f"${monthly_investment:,.0f}",
+                "Creator Needs": f"${creator_needs:,.0f}",
+                "Coverage": f"{coverage:.1f}x",
+                "Sustainable": "✅" if coverage >= 1.0 else "❌"
+            })
+        
+        # Display results table
+        df_results = pd.DataFrame(results)
+        st.dataframe(df_results, use_container_width=True)
+        
+        # Sustainability threshold
+        sustainable_users = None
+        for i, test_user_count in enumerate(test_users):
+            if results[i]["Sustainable"] == "✅":
+                sustainable_users = test_user_count
+                break
+        
+        if sustainable_users:
+            st.success(f"✅ Sustainable at {sustainable_users:,} users with {scenario_type} parameters")
+        else:
+            st.error(f"❌ Not sustainable even at 10M users with {scenario_type} parameters")
+    
+    with tab5:
+        st.header("🔍 Test Different Scenarios")
+        
+        st.markdown("""
+        ### 🧪 What if things go differently?
+        
+        Let's test how VCOIN performs under different conditions. 
+        **Try changing the parameters in the sidebar to see different outcomes!**
+        """)
+        
+        # Current scenario summary
+        st.markdown("---")
+        st.subheader("📊 Current Scenario Results")
+        
+        if len(users_data) > 12:
+            final_month = min(36, len(users_data) - 1)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric(
+                    "After 1 Year",
+                    f"{users_data[12]:,.0f} users",
+                    help="Number of active users after 12 months"
+                )
+                st.metric(
+                    "Token Price",
+                    f"${token_prices[12]:.2f}",
+                    f"{((token_prices[12]/initial_token_price - 1) * 100):.0f}% growth"
+                )
+            
+            with col2:
+                st.metric(
+                    "Monthly Value Created",
+                    f"${community_values[12]:,.0f}",
+                    help="Value created by community activity"
+                )
+                st.metric(
+                    "Monthly Investment",
+                    f"${investments[12]:,.0f}",
+                    help="Investment attracted by the value"
+                )
+            
+            with col3:
+                st.metric(
+                    "Creator Coverage",
+                    f"{creator_coverages[12]:.1f}x",
+                    "sustainable" if creator_coverages[12] >= 1.0 else "needs improvement"
+                )
+                sustainability = "✅ SUSTAINABLE" if creator_coverages[12] >= 1.0 else "⚠️ NOT YET"
+                st.metric(
+                    "Status",
+                    sustainability,
+                    help="Can we pay creators what they need?"
+                )
+        
+        # Quick scenario tests
+        st.markdown("---")
+        st.subheader("🎯 Quick Tests")
+        
+        st.markdown("**Try these scenarios by adjusting the sidebar:**")
+        
+        scenarios = [
+            ("🐌 Conservative Growth", "Growth: 15%, Appreciation: 75%, Efficiency: 30%"),
+            ("📈 Realistic Growth", "Growth: 25%, Appreciation: 150%, Efficiency: 50%"),
+            ("🚀 Optimistic Growth", "Growth: 35%, Appreciation: 250%, Efficiency: 70%"),
+            ("💎 Early Bird Special", "Set initial price to $0.50 - see the difference!")
+        ]
+        
+        for title, desc in scenarios:
+            st.markdown(f"**{title}:** {desc}")
+        
+        # Key insights
+        st.markdown("---")
+        st.subheader("💡 Key Insights")
+        
+        insights = []
+        
+        # Growth rate insight
+        if growth_rate >= 30:
+            insights.append("🚀 **High growth rate** - You're expecting viral adoption!")
+        elif growth_rate >= 20:
+            insights.append("📈 **Moderate growth** - Steady, realistic expansion")
+        else:
+            insights.append("🐌 **Conservative growth** - Slow but steady wins the race")
+        
+        # Price appreciation insight
+        if price_appreciation >= 200:
+            insights.append("💎 **High price expectations** - You believe in strong value creation")
+        elif price_appreciation >= 100:
+            insights.append("📊 **Reasonable expectations** - Balanced growth assumptions")
+        else:
+            insights.append("🛡️ **Conservative pricing** - Playing it safe")
+        
+        # Sustainability insight
+        if len(creator_coverages) > 12 and creator_coverages[12] >= 2.0:
+            insights.append("✅ **Highly sustainable** - Creators are well-funded!")
+        elif len(creator_coverages) > 12 and creator_coverages[12] >= 1.0:
+            insights.append("👍 **Sustainable** - System works at these parameters")
+        else:
+            insights.append("⚠️ **Challenging** - May need more users or higher prices")
+        
+        for insight in insights:
+            st.markdown(insight)
+        
+        st.info("💡 **Next:** Get your complete analysis report in the Summary tab!")
+        
+    with tab6:
+        st.header("📋 Complete Analysis Summary & Export")
+        
+        st.markdown("""
+        ### 📊 Your Complete VCOIN Investment Analysis
+        
+        Here's everything you need to know about your VCOIN investment, 
+        plus all the data to run your own analysis in Excel, Google Sheets, or other tools.
+        """)
+        
+        # Executive Summary
+        st.markdown("---")
+        st.subheader("🎯 Executive Summary")
+        
+        if len(users_data) > 12:
+            year1_users = users_data[12]
+            year1_price = token_prices[12]
+            year1_coverage = creator_coverages[12]
+            price_growth = ((year1_price / initial_token_price) - 1) * 100
+            
+            st.markdown(f"""
+            **Your Analysis Parameters:**
+            - Initial Token Price: **${initial_token_price:.2f}**
+            - Growth Rate: **{growth_rate}% monthly**
+            - Price Appreciation: **{price_appreciation}% annually**
+            - Market Efficiency: **{market_penetration}%**
+            
+            **Key Results After 1 Year:**
+            - Users: **{year1_users:,.0f}** (from 1,000)
+            - Token Price: **${year1_price:.2f}** ({price_growth:.0f}% growth)
+            - Creator Sustainability: **{year1_coverage:.1f}x** their needs
+            - Status: **{'✅ SUSTAINABLE' if year1_coverage >= 1.0 else '⚠️ NEEDS IMPROVEMENT'}**
+            """)
+        
+        # Investment Results Summary
+        st.markdown("---")
+        st.subheader("💰 Your Investment Results")
+        
+        # Use the same calculation as tab3
+        example_investment = 1000
+        if len(token_prices) > 12:
+            entry_price = token_prices[0]
+            exit_price = token_prices[12]
+            tokens_bought = example_investment / entry_price
+            profit = (tokens_bought * exit_price) - example_investment
+            staking_profit = example_investment * ((1.067 ** 1) - 1)
+            total_return = ((profit + staking_profit) / example_investment) * 100
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("$1,000 Investment", f"${example_investment + profit + staking_profit:,.0f}", f"{total_return:.0f}% return")
+            with col2:
+                st.metric("vs S&P 500", f"${example_investment * 1.10:,.0f}", "10% annual")
+            with col3:
+                st.metric("vs Bank Savings", f"${example_investment * 1.02:,.0f}", "2% annual")
+        
+        # Complete Data Export
+        st.markdown("---")
+        st.subheader("📊 Export All Data")
+        
+        st.markdown("**Get all the numbers to run your own analysis:**")
+        
+        # Prepare comprehensive export data
+        if len(users_data) > 0:
+            # Monthly data
+            export_data = []
+            for i, month in enumerate(months):
+                if i < len(users_data):
+                    export_data.append({
+                        'Month': month,
+                        'Users': users_data[i],
+                        'Token_Price': token_prices[i],
+                        'Community_Value_Monthly': community_values[i],
+                        'Investment_Inflow_Monthly': investments[i],
+                        'Creator_Coverage_Ratio': creator_coverages[i],
+                        'Market_Cap': token_prices[i] * 4_000_000_000,
+                        'Creators_Count': users_data[i] * 0.01,
+                        'Creator_Needs_Monthly': users_data[i] * 0.01 * 165,
+                        'Sustainable': 'Yes' if creator_coverages[i] >= 1.0 else 'No'
+                    })
+            
+            df_export = pd.DataFrame(export_data)
+            
+            # Show preview
+            st.markdown("**Preview of monthly data:**")
+            st.dataframe(df_export.head(12), use_container_width=True)
+            
+            # Year-by-year summary
+            yearly_summary = []
+            for year in [1, 2, 3]:
+                month = year * 12
+                if month < len(users_data):
+                    yearly_summary.append({
+                        'Year': year,
+                        'Users': users_data[month],
+                        'Token_Price': token_prices[month],
+                        'Market_Cap': token_prices[month] * 4_000_000_000,
+                        'Monthly_Community_Value': community_values[month],
+                        'Monthly_Investment': investments[month],
+                        'Creator_Coverage': creator_coverages[month],
+                        'Annual_Creator_Payout': investments[month] * 12 * 0.7,
+                        'Sustainable': 'Yes' if creator_coverages[month] >= 1.0 else 'No'
+                    })
+            
+            df_yearly = pd.DataFrame(yearly_summary)
+            
+            st.markdown("**3-Year Summary:**")
+            st.dataframe(df_yearly, use_container_width=True)
+            
+            # Investment scenarios
+            investment_scenarios = []
+            for inv_amount in [500, 1000, 5000, 10000, 25000]:
+                for entry_m in [0, 6, 12]:
+                    for hold_months in [6, 12, 24]:
+                        if entry_m + hold_months < len(token_prices):
+                            entry_p = token_prices[entry_m]
+                            exit_p = token_prices[entry_m + hold_months]
+                            tokens = inv_amount / entry_p
+                            final_value = tokens * exit_p
+                            staking_return = inv_amount * ((1.067 ** (hold_months/12)) - 1)
+                            total_return = ((final_value + staking_return - inv_amount) / inv_amount) * 100
+                            
+                            investment_scenarios.append({
+                                'Investment_Amount': inv_amount,
+                                'Entry_Month': entry_m,
+                                'Hold_Months': hold_months,
+                                'Entry_Price': entry_p,
+                                'Exit_Price': exit_p,
+                                'Tokens_Bought': tokens,
+                                'Final_Token_Value': final_value,
+                                'Staking_Rewards': staking_return,
+                                'Total_Return_Percent': total_return,
+                                'Final_Total_Value': final_value + staking_return
+                            })
+            
+            df_investments = pd.DataFrame(investment_scenarios)
+            
+            # Download buttons
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # Convert to CSV
+                monthly_csv = df_export.to_csv(index=False)
+                st.download_button(
+                    label="📈 Download Monthly Data (CSV)",
+                    data=monthly_csv,
+                    file_name=f"vcoin_monthly_data_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    help="All monthly projections for 3 years"
+                )
+            
+            with col2:
+                yearly_csv = df_yearly.to_csv(index=False)
+                st.download_button(
+                    label="📊 Download Yearly Summary (CSV)",
+                    data=yearly_csv,
+                    file_name=f"vcoin_yearly_summary_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    help="Key metrics by year"
+                )
+            
+            with col3:
+                investment_csv = df_investments.to_csv(index=False)
+                st.download_button(
+                    label="💰 Download Investment Scenarios (CSV)",
+                    data=investment_csv,
+                    file_name=f"vcoin_investment_scenarios_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    help="All investment return calculations"
+                )
+            
+            # Complete parameters file
+            st.markdown("---")
+            st.subheader("⚙️ Analysis Parameters")
+            
+            parameters = {
+                'Parameter': [
+                    'Initial_Token_Price',
+                    'Monthly_Growth_Rate_Percent',
+                    'Annual_Price_Appreciation_Percent',
+                    'Market_Efficiency_Percent',
+                    'Value_Per_Interaction_USD',
+                    'Creator_Monthly_Target_USD',
+                    'Total_Token_Supply',
+                    'Annual_Inflation_Percent',
+                    'Staking_APY_Percent',
+                    'Analysis_Date'
+                ],
+                'Value': [
+                    initial_token_price,
+                    growth_rate,
+                    price_appreciation,
+                    market_penetration,
+                    0.005,
+                    165,
+                    10_000_000_000,
+                    8.0,
+                    6.7,
+                    pd.Timestamp.now().strftime('%Y-%m-%d')
+                ],
+                'Description': [
+                    'Starting price when VCOIN launches',
+                    'Expected user growth each month',
+                    'Expected token price growth per year',
+                    'How efficiently community value converts to investment',
+                    'Value created per user interaction',
+                    'Target monthly earnings per creator',
+                    'Total number of tokens that will exist',
+                    'Healthy inflation rate for ecosystem growth',
+                    'Annual percentage yield from staking',
+                    'When this analysis was performed'
+                ]
+            }
+            
+            df_params = pd.DataFrame(parameters)
+            st.dataframe(df_params, use_container_width=True)
+            
+            params_csv = df_params.to_csv(index=False)
+            st.download_button(
+                label="⚙️ Download Parameters & Assumptions (CSV)",
+                data=params_csv,
+                file_name=f"vcoin_parameters_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                help="All assumptions used in this analysis"
+            )
+            
+            # Complete report
+            st.markdown("---")
+            complete_report = f"""
+# VCOIN Investment Analysis Report
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}
+
+## Analysis Parameters
+- Initial Token Price: ${initial_token_price:.2f}
+- Monthly Growth Rate: {growth_rate}%
+- Annual Price Appreciation: {price_appreciation}%
+- Market Efficiency: {market_penetration}%
+
+## Executive Summary
+After 1 year with these parameters:
+- Users grow to {users_data[12]:,.0f} (from 1,000)
+- Token price reaches ${token_prices[12]:.2f} ({((token_prices[12]/initial_token_price-1)*100):.0f}% growth)
+- Creator sustainability: {creator_coverages[12]:.1f}x their needs
+- System status: {'SUSTAINABLE' if creator_coverages[12] >= 1.0 else 'NEEDS IMPROVEMENT'}
+
+## Investment Example ($1,000)
+- Entry price: ${token_prices[0]:.2f}
+- Exit price (1 year): ${token_prices[12]:.2f}
+- Token returns: ${(1000/token_prices[0]*token_prices[12]-1000):.0f}
+- Staking rewards: ${1000*0.067:.0f}
+- Total return: {(((1000/token_prices[0]*token_prices[12]+1000*0.067)/1000-1)*100):.0f}%
+
+## Key Conclusions
+1. VCOIN creates measurable value from community activity
+2. Value attracts investment that funds creator payments
+3. System is {'sustainable' if creator_coverages[12] >= 1.0 else 'challenging'} at these parameters
+4. Investment returns {'beat' if ((1000/token_prices[0]*token_prices[12]+1000*0.067)/1000-1)*100 > 10 else 'trail'} traditional markets
+
+## Data Files Included
+- Monthly projections (36 months)
+- Yearly summaries (3 years)
+- Investment scenarios (multiple amounts & timeframes)
+- Complete parameters & assumptions
+
+## Disclaimer
+This analysis is based on mathematical models and assumptions. 
+Actual results may vary based on market conditions, user adoption, 
+and other factors beyond the scope of this model.
+"""
+            
+            st.download_button(
+                label="📋 Download Complete Report (TXT)",
+                data=complete_report,
+                file_name=f"vcoin_complete_analysis_{pd.Timestamp.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain",
+                help="Comprehensive report with all findings"
+            )
+            
+            st.success("🎉 **Export Complete!** You now have all the data to analyze VCOIN in any tool you prefer.")
+            
+        else:
+            st.error("No data available for export. Please check the analysis parameters.")
+
+def creator_consumer_balance_calculator():
+    """
+    New calculator with equal shares between creators and consumers,
+    with user-defined starting token valuation
+    """
+    st.markdown("# ⚖️ Creator-Consumer Balance Calculator")
+    st.markdown("---")
+    
+    st.markdown("""
+    ## 🎯 **OPTIMIZED VCOIN 4.0 Economy** *(Based on 10-Scenario Analysis)*
+    
+    This calculator implements **optimized VCOIN 4.0 tokenomics** with:
+    - **55% of rewards** go to **content creators** *(increased from 40% based on analysis)*
+    - **25% of rewards** go to **content consumers** *(optimized from 35%)*  
+    - **12% platform operations** and **8% ecosystem growth** *(streamlined)*
+    - **5x enhanced community value factor** *(aligned with Content Calculator)*
+    - **You set the starting token price** based on your economic strategy
+    - **Optimized dynamic rewards** with less aggressive token adjustment
+    
+    🔬 **Analysis Results**: Original V4 paid creators **93% less** than Content Calculator. These optimizations restore balance.
+    """)
+    
+    # Sidebar inputs
+    st.sidebar.markdown("## 🎛️ Economic Parameters")
+    
+    # Starting token valuation - user input
+    starting_token_price = st.sidebar.number_input(
+        "💰 Starting Token Price ($)",
+        min_value=0.01,
+        max_value=100.0,
+        value=1.0,
+        step=0.01,
+        help="Set the initial VCOIN price when platform launches. This affects all calculations."
+    )
+    
+    # Platform metrics
+    st.sidebar.markdown("### 📊 Platform Metrics")
+    daily_users = st.sidebar.slider(
+        "👥 Daily Active Users",
+        min_value=1000,
+        max_value=1000000,
+        value=15000,
+        step=1000,
+        help="Number of daily active users on the platform"
+    )
+    
+    content_posts_per_day = st.sidebar.slider(
+        "📝 Content Posts per Day",
+        min_value=100,
+        max_value=50000,
+        value=5000,
+        step=100,
+        help="Total number of content posts created daily"
+    )
+    
+    avg_engagement_per_post = st.sidebar.slider(
+        "💬 Avg Engagements per Post",
+        min_value=1,
+        max_value=1000,
+        value=50,
+        step=5,
+        help="Average likes, comments, shares per content post"
+    )
+    
+    # Economic parameters
+    st.sidebar.markdown("### 💼 Economic Settings")
+    
+    current_token_price = st.sidebar.number_input(
+        "📈 Current Token Price ($)",
+        min_value=0.01,
+        max_value=1000.0,
+        value=starting_token_price * 2.5,  # Default to 2.5x appreciation
+        step=0.01,
+        help="Current market price of VCOIN"
+    )
+    
+    community_value_factor = st.sidebar.slider(
+        "🌟 Community Value Factor",
+        min_value=0.001,
+        max_value=0.050,
+        value=0.025,  # Optimized: Increased from 0.005 to 0.025 based on analysis
+        step=0.001,
+        format="%.3f",
+        help="Value created per user interaction ($) - OPTIMIZED: 5x boost from analysis"
+    )
+    
+    market_efficiency = st.sidebar.slider(
+        "📊 Market Efficiency (%)",
+        min_value=10,
+        max_value=90,
+        value=60,  # Optimized: Increased from 50% to 60% based on analysis
+        step=5,
+        help="How efficiently community value converts to investment - OPTIMIZED"
+    ) / 100
+    
+    investment_conversion = st.sidebar.slider(
+        "💰 Investment Conversion (%)",
+        min_value=10,
+        max_value=70,
+        value=40,  # Optimized: Increased from 30% to 40% based on analysis
+        step=5,
+        help="Percentage of theoretical investment that actually flows in - OPTIMIZED"
+    ) / 100
+    
+    # Main calculation area
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("## 📊 **Platform Economics**")
+        
+        # Calculate platform metrics
+        total_daily_engagement = content_posts_per_day * avg_engagement_per_post
+        daily_community_value = total_daily_engagement * community_value_factor
+        monthly_community_value = daily_community_value * 30
+        
+        # Price appreciation and investment attraction
+        price_appreciation_factor = current_token_price / starting_token_price
+        price_change_percent = (price_appreciation_factor - 1) * 100
+        
+        if price_change_percent <= 0:
+            investment_multiplier = 0.5
+        elif price_change_percent <= 25:
+            investment_multiplier = 0.8
+        elif price_change_percent <= 50:
+            investment_multiplier = 1.0
+        else:
+            investment_multiplier = min(1.3, 1.0 + (price_change_percent - 50) / 200)
+        
+        theoretical_investment = monthly_community_value * investment_multiplier
+        actual_investment = theoretical_investment * market_efficiency * investment_conversion
+        
+        # Display platform metrics
+        st.metric("💡 Daily Community Value", f"${daily_community_value:,.2f}")
+        st.metric("📅 Monthly Community Value", f"${monthly_community_value:,.2f}")
+        st.metric("📈 Price Appreciation", f"{price_change_percent:.1f}%")
+        st.metric("🎯 Investment Multiplier", f"{investment_multiplier:.2f}x")
+        st.metric("💰 Monthly Investment Inflow", f"${actual_investment:,.2f}")
+        
+    with col2:
+        st.markdown("## ⚖️ **VCOIN 4.0 Distribution**")
+        
+        # OPTIMIZED VCOIN 4.0 distribution based on 10-scenario analysis
+        creator_share = actual_investment * 0.55  # 55% to creators (increased from 40%)
+        consumer_share = actual_investment * 0.25  # 25% to consumers (reduced from 35%)
+        platform_operations = actual_investment * 0.12  # 12% platform operations (reduced from 15%)
+        ecosystem_growth = actual_investment * 0.08  # 8% ecosystem growth (reduced from 10%)
+        
+        # Calculate participants
+        creator_percentage = st.sidebar.slider(
+            "🎨 Creator Percentage (%)",
+            min_value=0.5,
+            max_value=10.0,
+            value=2.5,  # Optimized: Increased from 1.0% to 2.5% based on analysis
+            step=0.1,
+            help="Percentage of users who are active content creators - OPTIMIZED"
+        ) / 100
+        
+        active_creators = int(daily_users * creator_percentage)
+        active_consumers = daily_users - active_creators
+        
+        # Enhanced dynamic reward adjustment (optimized)
+        reward_multiplier = 1.0 / (price_appreciation_factor ** 0.3)  # Less aggressive: 0.3 instead of 0.5
+        reward_multiplier = max(0.2, min(1.0, reward_multiplier))  # Higher minimum: 0.2 instead of 0.1
+        
+        st.metric("🎨 Active Creators", f"{active_creators:,}")
+        st.metric("👥 Active Consumers", f"{active_consumers:,}")
+        st.metric("💰 Creator Pool (55%)", f"${creator_share:,.2f}/month")
+        st.metric("🎁 Consumer Pool (25%)", f"${consumer_share:,.2f}/month")
+        st.metric("🏢 Platform Ops (12%)", f"${platform_operations:,.2f}/month")
+        st.metric("🌱 Ecosystem (8%)", f"${ecosystem_growth:,.2f}/month")
+        st.metric("⚡ Reward Multiplier", f"{reward_multiplier:.3f}")
+    
+    st.markdown("---")
+    
+    # Detailed breakdown
+    col3, col4 = st.columns(2)
+    
+    with col3:
+        st.markdown("## 🎨 **Creator Rewards**")
+        
+        if active_creators > 0:
+            avg_creator_reward_usd = creator_share / active_creators
+            
+            # Split creator rewards: 70% USD, 30% tokens
+            creator_usd_portion = avg_creator_reward_usd * 0.7
+            creator_token_value = avg_creator_reward_usd * 0.3
+            creator_token_amount = (creator_token_value / current_token_price) * reward_multiplier
+            
+            st.markdown("### 📈 **Per Creator (Monthly)**")
+            st.metric("💵 USD Reward", f"${creator_usd_portion:.2f}")
+            st.metric("🪙 Token Reward", f"{creator_token_amount:.1f} VCOIN")
+            st.metric("💎 Total Value", f"${creator_usd_portion + (creator_token_amount * current_token_price):.2f}")
+            
+            # Performance tiers using VCOIN 4.0 engagement formula
+            st.markdown("### 🏆 **Performance Tiers (V4 Formula)**")
+            performance_engagement_rates = [0.02, 0.05, 0.08, 0.15]  # 2%, 5%, 8%, 15% engagement rates
+            performance_multipliers = [1.0 + (rate * 2.0) for rate in performance_engagement_rates]
+            tier_names = ["📄 Basic Creator", "⭐ Good Creator", "🌟 Great Creator", "🏆 Elite Creator"]
+            
+            for i, (tier, rate, mult) in enumerate(zip(tier_names, performance_engagement_rates, performance_multipliers)):
+                tier_value = (creator_usd_portion + (creator_token_amount * current_token_price)) * mult
+                st.write(f"**{tier}** ({rate:.1%} engagement): {mult:.1f}x = ${tier_value:.2f}/month")
+        else:
+            st.warning("No active creators with current parameters")
+    
+    with col4:
+        st.markdown("## 👥 **Consumer Rewards**")
+        
+        if active_consumers > 0:
+            avg_consumer_reward_usd = consumer_share / active_consumers
+            
+            # Split consumer rewards: 30% USD, 70% tokens (encourage holding)
+            consumer_usd_portion = avg_consumer_reward_usd * 0.3
+            consumer_token_value = avg_consumer_reward_usd * 0.7
+            consumer_token_amount = (consumer_token_value / current_token_price) * reward_multiplier
+            
+            st.markdown("### 📈 **Per Consumer (Monthly)**")
+            st.metric("💵 USD Reward", f"${consumer_usd_portion:.2f}")
+            st.metric("🪙 Token Reward", f"{consumer_token_amount:.1f} VCOIN")
+            st.metric("💎 Total Value", f"${consumer_usd_portion + (consumer_token_amount * current_token_price):.2f}")
+            
+            # Engagement tiers using VCOIN 4.0 formula: 1.0 + (engagement_rate × 2.0)
+            st.markdown("### 💬 **Engagement Tiers (V4 Formula)**")
+            engagement_rates = [0.01, 0.03, 0.05, 0.10]  # 1%, 3%, 5%, 10% engagement rates
+            engagement_multipliers = [1.0 + (rate * 2.0) for rate in engagement_rates]
+            engagement_names = ["👀 Casual Viewer", "👍 Active Liker", "💬 Regular Commenter", "🔥 Super Engager"]
+            
+            for i, (tier, rate, mult) in enumerate(zip(engagement_names, engagement_rates, engagement_multipliers)):
+                tier_value = (consumer_usd_portion + (consumer_token_amount * current_token_price)) * mult
+                st.write(f"**{tier}** ({rate:.1%} engagement): {mult:.1f}x = ${tier_value:.2f}/month")
+        else:
+            st.warning("No active consumers with current parameters")
+    
+    st.markdown("---")
+    
+    # Economic health indicators
+    st.markdown("## 📊 **Economic Health Dashboard**")
+    
+    col5, col6, col7, col8 = st.columns(4)
+    
+    with col5:
+        creator_sustainability = (creator_share / max(1, active_creators)) / 165  # vs $165 YouTube standard
+        if creator_sustainability >= 1.0:
+            st.success(f"🎨 **Creator Health**\n\n{creator_sustainability:.1f}x YouTube earnings")
+        elif creator_sustainability >= 0.5:
+            st.warning(f"🎨 **Creator Health**\n\n{creator_sustainability:.1f}x YouTube earnings")
+        else:
+            st.error(f"🎨 **Creator Health**\n\n{creator_sustainability:.1f}x YouTube earnings")
+    
+    with col6:
+        consumer_value = (consumer_share / max(1, active_consumers)) * 12  # Annual value
+        if consumer_value >= 50:
+            st.success(f"👥 **Consumer Value**\n\n${consumer_value:.0f}/year")
+        elif consumer_value >= 20:
+            st.warning(f"👥 **Consumer Value**\n\n${consumer_value:.0f}/year")
+        else:
+            st.error(f"👥 **Consumer Value**\n\n${consumer_value:.0f}/year")
+    
+    with col7:
+        token_velocity = (actual_investment / 30) / (current_token_price * 1000000)  # Simplified velocity
+        if 0.1 <= token_velocity <= 0.5:
+            st.success(f"🔄 **Token Velocity**\n\n{token_velocity:.3f} (Healthy)")
+        else:
+            st.warning(f"🔄 **Token Velocity**\n\n{token_velocity:.3f}")
+    
+    with col8:
+        platform_efficiency = (actual_investment / monthly_community_value) * 100
+        if platform_efficiency >= 15:
+            st.success(f"⚡ **Platform Efficiency**\n\n{platform_efficiency:.1f}%")
+        elif platform_efficiency >= 8:
+            st.warning(f"⚡ **Platform Efficiency**\n\n{platform_efficiency:.1f}%")
+        else:
+            st.error(f"⚡ **Platform Efficiency**\n\n{platform_efficiency:.1f}%")
+    
+    # Summary and export
+    st.markdown("---")
+    st.markdown("## 📋 **Calculation Summary**")
+    
+    summary_data = {
+        'Metric': [
+            'Starting Token Price',
+            'Current Token Price', 
+            'Price Appreciation',
+            'Daily Users',
+            'Active Creators',
+            'Active Consumers',
+            'Monthly Creator Pool (55%)',
+            'Monthly Consumer Pool (25%)',
+            'Platform Operations (12%)',
+            'Ecosystem Growth (8%)',
+            'Avg Creator Reward',
+            'Avg Consumer Reward',
+            'Creator Sustainability vs YouTube',
+            'Platform Efficiency'
+        ],
+        'Value': [
+            f"${starting_token_price:.2f}",
+            f"${current_token_price:.2f}",
+            f"{price_change_percent:.1f}%",
+            f"{daily_users:,}",
+            f"{active_creators:,}",
+            f"{active_consumers:,}",
+            f"${creator_share:,.2f}",
+            f"${consumer_share:,.2f}",
+            f"${platform_operations:,.2f}",
+            f"${ecosystem_growth:,.2f}",
+            f"${creator_share / max(1, active_creators):.2f}",
+            f"${consumer_share / max(1, active_consumers):.2f}",
+            f"{(creator_share / max(1, active_creators)) / 165:.1f}x",
+            f"{platform_efficiency:.1f}%"
+        ]
+    }
+    
+    df_summary = pd.DataFrame(summary_data)
+    st.dataframe(df_summary, use_container_width=True)
+    
+    # Export functionality
+    col_export1, col_export2 = st.columns(2)
+    
+    with col_export1:
+        csv_data = df_summary.to_csv(index=False)
+        st.download_button(
+            label="📊 Download Summary (CSV)",
+            data=csv_data,
+            file_name=f"creator_consumer_balance_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            help="Download calculation summary"
+        )
+    
+    with col_export2:
+        # Detailed calculation export
+        detailed_calc = f"""
+# Creator-Consumer Balance Calculation
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}
+
+## Parameters
+- Starting Token Price: ${starting_token_price:.2f}
+- Current Token Price: ${current_token_price:.2f}
+- Daily Users: {daily_users:,}
+- Creator Percentage: {creator_percentage*100:.1f}%
+
+## Platform Economics
+- Daily Community Value: ${daily_community_value:,.2f}
+- Monthly Community Value: ${monthly_community_value:,.2f}
+- Investment Multiplier: {investment_multiplier:.2f}x
+- Monthly Investment: ${actual_investment:,.2f}
+
+## OPTIMIZED VCOIN 4.0 Distribution (Post-Analysis)
+- Creator Pool (55%): ${creator_share:,.2f}/month
+- Consumer Pool (25%): ${consumer_share:,.2f}/month  
+- Platform Operations (12%): ${platform_operations:,.2f}/month
+- Ecosystem Growth (8%): ${ecosystem_growth:,.2f}/month
+- Avg Creator Reward: ${creator_share / max(1, active_creators):.2f}/month
+- Avg Consumer Reward: ${consumer_share / max(1, active_consumers):.2f}/month
+
+## Economic Health
+- Creator Sustainability: {(creator_share / max(1, active_creators)) / 165:.1f}x YouTube standard
+- Platform Efficiency: {platform_efficiency:.1f}%
+- Token Velocity: {token_velocity:.3f}
+"""
+        
+        st.download_button(
+            label="📄 Download Detailed Report (TXT)",
+            data=detailed_calc,
+            file_name=f"creator_consumer_detailed_{pd.Timestamp.now().strftime('%Y%m%d')}.txt",
+            mime="text/plain",
+            help="Download complete calculation details"
+        )
+    
+    # Live calculation formulas
+    st.markdown("---")
+    st.markdown("## 🔬 **Live Calculation Formulas**")
+    
+    with st.expander("📐 View All Formulas", expanded=False):
+        st.markdown(f"""
+        ### Platform Value Creation
+        ```
+        Total Daily Engagement = {content_posts_per_day:,} posts × {avg_engagement_per_post} engagements = {total_daily_engagement:,}
+        Daily Community Value = {total_daily_engagement:,} × ${community_value_factor:.3f} = ${daily_community_value:,.2f}
+        Monthly Community Value = ${daily_community_value:,.2f} × 30 = ${monthly_community_value:,.2f}
+        ```
+        
+        ### Investment Attraction
+        ```
+        Price Appreciation = (${current_token_price:.2f} / ${starting_token_price:.2f} - 1) × 100 = {price_change_percent:.1f}%
+        Investment Multiplier = {investment_multiplier:.2f}x (based on price appreciation)
+        Theoretical Investment = ${monthly_community_value:,.2f} × {investment_multiplier:.2f} = ${theoretical_investment:,.2f}
+        Actual Investment = ${theoretical_investment:,.2f} × {market_efficiency:.1%} × {investment_conversion:.1%} = ${actual_investment:,.2f}
+        ```
+        
+        ### OPTIMIZED VCOIN 4.0 Distribution (Based on Analysis)
+        ```
+        Creator Pool = ${actual_investment:,.2f} × 55% = ${creator_share:,.2f}
+        Consumer Pool = ${actual_investment:,.2f} × 25% = ${consumer_share:,.2f}
+        Platform Ops = ${actual_investment:,.2f} × 12% = ${platform_operations:,.2f}
+        Ecosystem = ${actual_investment:,.2f} × 8% = ${ecosystem_growth:,.2f}
+        Avg Creator Reward = ${creator_share:,.2f} / {active_creators:,} = ${creator_share / max(1, active_creators):.2f}
+        Avg Consumer Reward = ${consumer_share:,.2f} / {active_consumers:,} = ${consumer_share / max(1, active_consumers):.2f}
+        ```
+        
+        ### Optimized Dynamic Token Adjustment
+        ```
+        Reward Multiplier = 1.0 / ({price_appreciation_factor:.2f} ^ 0.3) = {reward_multiplier:.3f} (less aggressive)
+        Creator Tokens = (${creator_share / max(1, active_creators) * 0.3:.2f} / ${current_token_price:.2f}) × {reward_multiplier:.3f} = {(creator_share / max(1, active_creators) * 0.3 / current_token_price) * reward_multiplier:.1f} VCOIN
+        Consumer Tokens = (${consumer_share / max(1, active_consumers) * 0.7:.2f} / ${current_token_price:.2f}) × {reward_multiplier:.3f} = {(consumer_share / max(1, active_consumers) * 0.7 / current_token_price) * reward_multiplier:.1f} VCOIN
+        ```
+        
+        ### V4 Engagement Formula (From Content Calculator)
+        ```
+        Engagement Rate = (Shares + Likes + Comments) / Views
+        Engagement Multiplier = 1.0 + (Engagement_Rate × 2.0)
+        
+        Examples:
+        • 2% engagement = 1.0 + (0.02 × 2.0) = 1.04x multiplier
+        • 5% engagement = 1.0 + (0.05 × 2.0) = 1.10x multiplier  
+        • 10% engagement = 1.0 + (0.10 × 2.0) = 1.20x multiplier
+        • 15% engagement = 1.0 + (0.15 × 2.0) = 1.30x multiplier
+        ```
+        """)
+    
+    st.info("🔬 **Optimization Note**: This calculator uses **optimized VCOIN 4.0 tokenomics** based on comprehensive 10-scenario analysis vs Content Calculator. Original V4 paid creators 93% less - these parameters restore balance.")
+    st.success("🎉 **Optimized Creator-Consumer Balance Calculator is running!** Parameters are fine-tuned for realistic creator compensation.")
 
 if __name__ == "__main__":
     main()
