@@ -1214,27 +1214,27 @@ def reverse_simulation_interface():
     with col1:
         target_creator_monthly_usd = st.number_input(
             "Target Creator Monthly Earnings ($)", 
-            min_value=50, max_value=50000, value=1500, step=50,
-            help="💡 How much should an average creator earn per month?"
+            value=1500.0, step=1.0,
+            help="💡 How much should an average creator earn per month? (No limits - test any amount)"
         )
         
         target_posts_per_month = st.number_input(
             "Target Posts per Creator/Month",
-            min_value=10, max_value=300, value=60, step=10,
+            min_value=1, value=60, step=1,
             help="💡 Expected content output per creator monthly (2 posts/day = 60/month)"
         )
     
     with col2:
         target_consumer_monthly_usd = st.number_input(
             "Target Consumer Monthly Earnings ($)", 
-            min_value=1, max_value=1000, value=50, step=5,
-            help="💡 How much should an average user earn monthly from engagement?"
+            min_value=0.01, value=50.0, step=0.1,
+            help="💡 How much should an average user earn monthly from engagement? (No upper limit)"
         )
         
         total_active_users = st.number_input(
             "Total App Active Users",
-            min_value=1000, max_value=10_000_000, value=100_000, step=5000,
-            help="💡 Total platform user base for calculations"
+            min_value=1, value=100_000, step=1,
+            help="💡 Total platform user base for calculations (No limits - test any scale)"
         )
     
     with col3:
@@ -1253,29 +1253,29 @@ def reverse_simulation_interface():
     with col1:
         total_monthly_views = st.number_input(
             "Total Monthly Views",
-            min_value=1000, max_value=1_000_000_000, value=10_000_000, step=100_000,
-            help="💡 Total views across all content for the month"
+            min_value=1, value=10_000_000, step=1,
+            help="💡 Total views across all content for the month (No limits)"
         )
     
     with col2:
         total_monthly_likes = st.number_input(
             "Total Monthly Likes",
-            min_value=100, max_value=100_000_000, value=500_000, step=10_000,
-            help="💡 Total likes across all content for the month"
+            min_value=0, value=500_000, step=1,
+            help="💡 Total likes across all content for the month (No limits)"
         )
     
     with col3:
         total_monthly_shares = st.number_input(
             "Total Monthly Shares",
-            min_value=10, max_value=10_000_000, value=100_000, step=1_000,
-            help="💡 Total shares/reposts across all content for the month"
+            min_value=0, value=100_000, step=1,
+            help="💡 Total shares/reposts across all content for the month (No limits)"
         )
     
     with col4:
         total_monthly_comments = st.number_input(
             "Total Monthly Comments",
-            min_value=10, max_value=10_000_000, value=50_000, step=1_000,
-            help="💡 Total comments across all content for the month"
+            min_value=0, value=50_000, step=1,
+            help="💡 Total comments across all content for the month (No limits)"
         )
         
     
