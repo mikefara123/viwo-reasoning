@@ -1,5 +1,5 @@
-# VCOIN Economic Playground - Streamlit Cloud Compatible
-streamlit
-pandas
-plotly
-numpy
+# VCOIN Algorithm 5 Platform Dependencies
+streamlit>=1.49.0
+plotly>=6.0.0
+pandas>=2.0.0
+numpy>=2.0.0
