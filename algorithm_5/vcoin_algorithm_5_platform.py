@@ -1,23 +1,47 @@
 """
 VCOIN Algorithm 5 - Price Pool Model Platform
 Sustainable token distribution with quality-based weighting
+Streamlit Compatible Version
 """
 
 import streamlit as st
 import plotly.graph_objects as go
-import plotly.express as px
-import pandas as pd
 import math
-import numpy as np
-from datetime import datetime, timedelta
+import warnings
 
-# Page configuration
+# Try to import optional dependencies
+try:
+    import plotly.express as px
+    HAS_PLOTLY_EXPRESS = True
+except ImportError:
+    HAS_PLOTLY_EXPRESS = False
+    st.warning("Plotly Express not available. Some charts may not work.")
+
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+    st.warning("Pandas not available. Using basic data structures.")
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    # Use Python's built-in math for calculations
+
+# Streamlit configuration
 st.set_page_config(
-    page_title="VCOIN Algorithm 5 - Price Pool Platform",
+    page_title="VCOIN Algorithm 5 Platform",
     page_icon="🪙",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Suppress warnings for cleaner output
+warnings.filterwarnings("ignore")
+from datetime import datetime, timedelta
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -708,18 +732,17 @@ def token_velocity_management_tab():
         st.subheader("🔄 Token Sink Breakdown")
         
         if economics['total_sinks'] > 0:
-            import plotly.express as px
-            
             sink_data = list(economics['sinks_breakdown'].items())
             sink_names = [item[0] for item in sink_data]
             sink_values = [item[1] for item in sink_data]
             
-            fig_sinks = px.pie(
-                values=sink_values,
-                names=sink_names,
-                title="Daily Token Sink Distribution"
+            fig_sinks = create_pie_chart(
+                sink_values,
+                sink_names,
+                "Daily Token Sink Distribution"
             )
-            st.plotly_chart(fig_sinks)
+            if fig_sinks:
+                st.plotly_chart(fig_sinks)
         else:
             st.info("Enable token sinks to see breakdown")
         
@@ -748,9 +771,13 @@ def token_velocity_management_tab():
             ]
         }
         
-        import pandas as pd
-        df_velocity = pd.DataFrame(velocity_data)
-        st.dataframe(df_velocity, width='stretch')
+        if HAS_PANDAS:
+            import pandas as pd
+            df_velocity = pd.DataFrame(velocity_data)
+            st.dataframe(df_velocity, width='stretch')
+        else:
+            # Fallback to basic table display
+            st.table(velocity_data)
 
 def platform_simulation_tab():
     """Simulate platform economics across different scenarios"""
@@ -1127,14 +1154,34 @@ def content_calculator_tab():
             
             st.dataframe(engagement_breakdown, width='stretch')
 
+@st.cache_data
+def get_version_info():
+    """Get version information - cached for performance"""
+    return {
+        'streamlit_version': st.__version__,
+        'platform_version': 'Algorithm 5 v2.0',
+        'last_updated': '2025-01-09'
+    }
+
 def main():
     """Main application"""
-    initialize_session_state()
-    
-    # Sidebar
-    st.sidebar.title("🪙 VCOIN Algorithm 5")
-    st.sidebar.write("**Price Pool Distribution Model**")
-    st.sidebar.write("Sustainable • Quality-Based • Multi-Stakeholder")
+    try:
+        initialize_session_state()
+        
+        # Sidebar
+        st.sidebar.title("🪙 VCOIN Algorithm 5")
+        st.sidebar.write("**Price Pool Distribution Model**")
+        st.sidebar.write("Sustainable • Quality-Based • Multi-Stakeholder")
+        
+        # Version info in sidebar
+        version_info = get_version_info()
+        st.sidebar.markdown("---")
+        st.sidebar.caption(f"Platform: {version_info['platform_version']}")
+        st.sidebar.caption(f"Streamlit: {version_info['streamlit_version']}")
+        
+    except Exception as e:
+        st.error(f"Application Error: {str(e)}")
+        st.stop()
     
     # Navigation
     tab_names = [
@@ -1170,5 +1217,67 @@ def main():
     st.sidebar.write("✅ Anti-Manipulation")
     st.sidebar.write("✅ Scales Infinitely")
 
+@st.cache_data
+def create_pie_chart(values, names, title):
+    """Create a cached pie chart for better performance"""
+    try:
+        if HAS_PLOTLY_EXPRESS:
+            fig = px.pie(
+                values=values,
+                names=names,
+                title=title,
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+        else:
+            # Fallback to basic Plotly Graph Objects
+            fig = go.Figure(data=[go.Pie(
+                labels=names,
+                values=values,
+                textinfo='label+percent',
+                textposition='inside'
+            )])
+            fig.update_layout(title_text=title)
+        
+        fig.update_traces(textposition='inside', textinfo='percent+label')
+        fig.update_layout(
+            showlegend=True,
+            height=400,
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
+        return fig
+    except Exception as e:
+        st.error(f"Chart creation error: {str(e)}")
+        return None
+
+@st.cache_data
+def create_bar_chart(x_data, y_data, title, x_title, y_title):
+    """Create a cached bar chart for better performance"""
+    try:
+        fig = go.Figure(data=[
+            go.Bar(
+                x=x_data,
+                y=y_data,
+                marker_color='#1f77b4',
+                text=y_data,
+                textposition='auto'
+            )
+        ])
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_title,
+            yaxis_title=y_title,
+            height=400,
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
+        return fig
+    except Exception as e:
+        st.error(f"Chart creation error: {str(e)}")
+        return None
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        st.error(f"Critical Application Error: {str(e)}")
+        st.write("Please refresh the page or contact support.")
+        st.stop()
