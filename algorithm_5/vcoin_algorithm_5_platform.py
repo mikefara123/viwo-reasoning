@@ -67,17 +67,17 @@ def initialize_session_state():
         'price_reduction_exponent': 0.4,
         'current_token_price': 0.004,
         
-        # Token velocity management (calibrated for 51% recapture = 29.4M VCOIN/day)
+        # Token velocity management (percentages of circulating supply)
         'enable_token_sinks': True,
         'token_recapture_rate': 0.51,
-        'nft_daily_volume': 8_400_000,      # 10% circulation (VIP badges, profile items)
-        'staking_daily_locks': 8_400_000,   # 10% circulation (3-30 day locks)
-        'rate_limit_unlocks': 4_200_000,    # 5% circulation (content/view limits)
-        'prediction_market_bets': 4_200_000, # 5% circulation (content success bets)
-        'content_purchases': 840_000,       # 1% circulation (premium content)
-        'donations_tips': 840_000,          # 1% circulation (creator support)
-        'profile_boosting': 840_000,        # 1% circulation (algorithmic promotion)
-        'advanced_features': 1_680_000,     # 2% circulation (analytics, tools)
+        'nft_circulation_pct': 10.0,        # 10% circulation (VIP badges, profile items)
+        'staking_circulation_pct': 10.0,    # 10% circulation (3-30 day locks)
+        'rate_limit_circulation_pct': 5.0,  # 5% circulation (content/view limits)
+        'prediction_circulation_pct': 5.0,  # 5% circulation (content success bets)
+        'content_purchase_circulation_pct': 1.0,   # 1% circulation (premium content)
+        'donations_circulation_pct': 1.0,   # 1% circulation (creator support)
+        'boosting_circulation_pct': 1.0,    # 1% circulation (algorithmic promotion)
+        'features_circulation_pct': 2.0,    # 2% circulation (analytics, tools)
     }
     
     for key, value in defaults.items():
@@ -136,16 +136,20 @@ def calculate_token_sinks():
             'velocity_reduction': 0
         }
     
-    # Token sink categories (daily VCOIN amounts)
+    # Calculate daily volumes from percentages of circulating supply
+    circulating_supply = st.session_state.total_supply * 0.6  # Assume 60% circulating
+    daily_circulation = circulating_supply / 365  # Annual circulation divided by days
+    
+    # Token sink categories (daily VCOIN amounts calculated from percentages)
     sinks = {
-        'NFT Trading': st.session_state.nft_daily_volume,
-        'Staking Locks': st.session_state.staking_daily_locks,
-        'Rate Limit Unlocks': st.session_state.rate_limit_unlocks,
-        'Prediction Markets': st.session_state.prediction_market_bets,
-        'Content Purchases': st.session_state.content_purchases,
-        'Donations & Tips': st.session_state.donations_tips,
-        'Profile Boosting': st.session_state.profile_boosting,
-        'Advanced Features': st.session_state.advanced_features
+        'NFT Trading': daily_circulation * (st.session_state.nft_circulation_pct / 100),
+        'Staking Locks': daily_circulation * (st.session_state.staking_circulation_pct / 100),
+        'Rate Limit Unlocks': daily_circulation * (st.session_state.rate_limit_circulation_pct / 100),
+        'Prediction Markets': daily_circulation * (st.session_state.prediction_circulation_pct / 100),
+        'Content Purchases': daily_circulation * (st.session_state.content_purchase_circulation_pct / 100),
+        'Donations & Tips': daily_circulation * (st.session_state.donations_circulation_pct / 100),
+        'Profile Boosting': daily_circulation * (st.session_state.boosting_circulation_pct / 100),
+        'Advanced Features': daily_circulation * (st.session_state.features_circulation_pct / 100)
     }
     
     total_sinks = sum(sinks.values())
@@ -560,89 +564,101 @@ def token_velocity_management_tab():
         )
         
         if st.session_state.enable_token_sinks:
-            st.write("**Daily Token Sink Volumes (VCOIN):**")
+            st.write("**Token Sink Configuration (% of Circulating Supply):**")
             
-            st.session_state.nft_daily_volume = st.number_input(
+            st.session_state.nft_circulation_pct = st.slider(
                 "NFT Trading (VIP badges, profile items)",
-                min_value=0,
-                max_value=50_000_000,
-                value=st.session_state.nft_daily_volume,
-                step=100_000,
-                help="10% circulation impact - High velocity reduction"
+                min_value=0.0,
+                max_value=20.0,
+                value=st.session_state.nft_circulation_pct,
+                step=0.5,
+                format="%.1f%%",
+                help="High velocity reduction - Users buy VIP badges, profile customization"
             )
             
-            st.session_state.staking_daily_locks = st.number_input(
+            st.session_state.staking_circulation_pct = st.slider(
                 "Short-term Staking (3-30 day locks)",
-                min_value=0,
-                max_value=50_000_000,
-                value=st.session_state.staking_daily_locks,
-                step=100_000,
-                help="10% circulation impact - Medium velocity reduction"
+                min_value=0.0,
+                max_value=20.0,
+                value=st.session_state.staking_circulation_pct,
+                step=0.5,
+                format="%.1f%%",
+                help="Medium velocity reduction - Token locks with APY rewards"
             )
             
-            st.session_state.rate_limit_unlocks = st.number_input(
+            st.session_state.rate_limit_circulation_pct = st.slider(
                 "Rate Limit Unlocks (content/view limits)",
-                min_value=0,
-                max_value=25_000_000,
-                value=st.session_state.rate_limit_unlocks,
-                step=50_000,
-                help="5% circulation impact - Medium velocity reduction"
+                min_value=0.0,
+                max_value=10.0,
+                value=st.session_state.rate_limit_circulation_pct,
+                step=0.5,
+                format="%.1f%%",
+                help="Medium velocity reduction - Pay to unlock posting/viewing limits"
             )
             
-            st.session_state.prediction_market_bets = st.number_input(
+            st.session_state.prediction_circulation_pct = st.slider(
                 "Prediction Market Bets",
-                min_value=0,
-                max_value=25_000_000,
-                value=st.session_state.prediction_market_bets,
-                step=50_000,
-                help="5% circulation impact - Medium velocity reduction"
+                min_value=0.0,
+                max_value=10.0,
+                value=st.session_state.prediction_circulation_pct,
+                step=0.5,
+                format="%.1f%%",
+                help="Medium velocity reduction - Bet on content success"
             )
             
-            st.session_state.content_purchases = st.number_input(
+            st.session_state.content_purchase_circulation_pct = st.slider(
                 "Premium Content Purchases",
-                min_value=0,
-                max_value=5_000_000,
-                value=st.session_state.content_purchases,
-                step=10_000,
-                help="1% circulation impact - High velocity reduction"
+                min_value=0.0,
+                max_value=5.0,
+                value=st.session_state.content_purchase_circulation_pct,
+                step=0.1,
+                format="%.1f%%",
+                help="High velocity reduction - Scientific papers, premium courses"
             )
             
-            st.session_state.donations_tips = st.number_input(
+            st.session_state.donations_circulation_pct = st.slider(
                 "Donations & Tips",
-                min_value=0,
-                max_value=5_000_000,
-                value=st.session_state.donations_tips,
-                step=10_000,
-                help="1% circulation impact - High velocity reduction"
+                min_value=0.0,
+                max_value=5.0,
+                value=st.session_state.donations_circulation_pct,
+                step=0.1,
+                format="%.1f%%",
+                help="High velocity reduction - Direct creator support"
             )
             
-            st.session_state.profile_boosting = st.number_input(
+            st.session_state.boosting_circulation_pct = st.slider(
                 "Profile Boosting & Promotion",
-                min_value=0,
-                max_value=5_000_000,
-                value=st.session_state.profile_boosting,
-                step=10_000,
-                help="1% circulation impact - High velocity reduction"
+                min_value=0.0,
+                max_value=5.0,
+                value=st.session_state.boosting_circulation_pct,
+                step=0.1,
+                format="%.1f%%",
+                help="High velocity reduction - Algorithmic promotion, gain followers"
             )
             
-            st.session_state.advanced_features = st.number_input(
+            st.session_state.features_circulation_pct = st.slider(
                 "Advanced Features (analytics, tools)",
-                min_value=0,
-                max_value=10_000_000,
-                value=st.session_state.advanced_features,
-                step=20_000,
-                help="2% circulation impact - Medium velocity reduction"
+                min_value=0.0,
+                max_value=5.0,
+                value=st.session_state.features_circulation_pct,
+                step=0.1,
+                format="%.1f%%",
+                help="Medium velocity reduction - Analytics, scheduling, monetization"
             )
             
-            # Calculate total and recapture rate
-            total_sinks = (st.session_state.nft_daily_volume + 
-                          st.session_state.staking_daily_locks + 
-                          st.session_state.rate_limit_unlocks + 
-                          st.session_state.prediction_market_bets + 
-                          st.session_state.content_purchases + 
-                          st.session_state.donations_tips + 
-                          st.session_state.profile_boosting + 
-                          st.session_state.advanced_features)
+            # Calculate total circulation impact and actual volumes
+            total_circulation_pct = (st.session_state.nft_circulation_pct + 
+                                   st.session_state.staking_circulation_pct + 
+                                   st.session_state.rate_limit_circulation_pct + 
+                                   st.session_state.prediction_circulation_pct + 
+                                   st.session_state.content_purchase_circulation_pct + 
+                                   st.session_state.donations_circulation_pct + 
+                                   st.session_state.boosting_circulation_pct + 
+                                   st.session_state.features_circulation_pct)
+            
+            # Get token sink data for display
+            sink_data = calculate_token_sinks()
+            total_sinks = sink_data['total_sinks']
             
             daily_pool = calculate_daily_pool()
             pool_data = calculate_dynamic_daily_pool(daily_pool, st.session_state.total_users, st.session_state.current_token_price)
@@ -650,18 +666,11 @@ def token_velocity_management_tab():
             
             calculated_recapture_rate = total_sinks / actual_daily_pool if actual_daily_pool > 0 else 0
             
-            st.session_state.token_recapture_rate = st.slider(
-                "Target Token Recapture Rate",
-                min_value=0.0,
-                max_value=1.0,
-                value=min(calculated_recapture_rate, 1.0),
-                step=0.01,
-                format="%.2f",
-                help="Percentage of daily outflow recaptured through sinks"
-            )
+            st.session_state.token_recapture_rate = calculated_recapture_rate
             
+            st.info(f"**Total Circulation Impact**: {total_circulation_pct:.1f}%")
+            st.info(f"**Daily Token Sinks**: {total_sinks:,.0f} VCOIN")
             st.info(f"**Calculated Recapture Rate**: {calculated_recapture_rate:.1%}")
-            st.info(f"**Total Daily Sinks**: {total_sinks:,.0f} VCOIN")
     
     with col2:
         st.subheader("📊 Velocity Impact Analysis")
@@ -717,6 +726,14 @@ def token_velocity_management_tab():
         # Velocity comparison
         st.subheader("🚀 Velocity Impact")
         
+        # Calculate baseline sustainability (without sinks)
+        if economics['recapture_rate'] == 0:
+            baseline_years = 3.0
+        elif economics['recapture_rate'] >= 1.0:
+            baseline_years = float('inf')
+        else:
+            baseline_years = 3.0 / (1 - economics['recapture_rate'])
+        
         velocity_data = {
             'Metric': ['Without Sinks', 'With Sinks', 'Improvement'],
             'Token Velocity': [
@@ -725,9 +742,9 @@ def token_velocity_management_tab():
                 f"{economics['velocity_reduction']:.1f}% reduction"
             ],
             'Sustainability': [
-                "3.0 years" if economics['recapture_rate'] == 0 else f"{3.0 / (1 - economics['recapture_rate']):.1f} years",
+                f"{baseline_years:.1f} years" if baseline_years < 100 else "∞",
                 f"{economics['years_sustainable']:.1f} years" if economics['years_sustainable'] < 100 else "∞",
-                f"{((economics['years_sustainable'] / 3.0) - 1) * 100:.0f}% longer" if economics['years_sustainable'] < 100 else "Infinite improvement"
+                f"{((economics['years_sustainable'] / baseline_years) - 1) * 100:.0f}% longer" if economics['years_sustainable'] < 100 and baseline_years < 100 else "Infinite improvement"
             ]
         }
         
