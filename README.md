@@ -18,6 +18,20 @@
 - Python 3.9+
 - pip package manager
 
+### Local Development
+Launch the platform:
+```bash
+./run_algorithm_5.sh
+```
+Access at: http://localhost:8501
+
+### Streamlit Cloud Deployment
+The platform is ready for Streamlit Cloud deployment:
+```bash
+streamlit run streamlit_app.py
+```
+See `STREAMLIT_CLOUD_DEPLOYMENT.md` for full deployment guide.
+
 ### Installation & Launch
 ```bash
 # Clone or navigate to the project directory
